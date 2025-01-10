@@ -1,0 +1,60 @@
+Program = "PROGRAM" Name ";" Block "." .
+
+
+Block =
+    [ "CONST" Name "=" Number { "," Name "=" Number } ";" ]
+    [ "VAR" Type Name { "," Name } ";" ]
+    { "PROCEDURE" Name ";" Block ";" }
+    Instruction .
+
+
+Type = ( INT8
+       | INT16
+       | INT32
+       | INT64
+       | INT128
+       | FLOAT8
+       | FLOAT16
+       | FLOAT32
+       | FLOAT64
+       | FLOAT128) {("[" Size "]" | [MatrixType] "[" Size "]""[" Size "]")}
+
+
+MatrixType = Sparse
+           | Identity
+           | Diagonal
+           | Upper Triangular
+           | Lower Triangular
+           | Orthogonal
+
+
+Size = Number
+
+
+Instruction =
+    Name "=" Expression
+    | "CALL" Name
+    | "READ" Name
+    | "WRITE" Expression
+    | "BEGIN" Instruction { ";" Instruction } "END"
+    | "IF" Condition "THEN" Instruction
+    | "WHILE" Condition "DO" Instruction .
+
+
+Condition =
+    Expression ("=" | "<" | ">") Expression
+    | "NOT" Condition .
+
+
+Expression =
+    [ "+" | "-" ] Term { ("+" | "-") Term } .
+
+
+Term =
+    Factor { ("*" | "/") Factor } .
+
+
+Factor =
+    Name
+    | Number
+    | "(" Expression ")" .
