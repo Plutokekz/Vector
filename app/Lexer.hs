@@ -1,6 +1,7 @@
 module Lexer where
 
-import Control.Applicative (Alternative (..))
+import Control.Applicative (Alternative (..), optional)
+import Data.Char (isAlpha, isNumber, isSpace)
 import Data.List (nub)
 
 type Offset = Int
@@ -14,6 +15,8 @@ data LexerErrorType i
   | ExpectedEndOfFile i
   | Expected i i
   deriving (Eq, Show)
+
+data TokenPos = TokenPos {tokenOffset :: Offset, token :: Token} deriving (Show, Eq)
 
 data Token
   = PROGRAMM
@@ -39,16 +42,16 @@ data Token
   | SemiColon
   | RSquareParrent
   | LSquareParrent
-  | INT8 Integer
-  | INT16 Integer
-  | INT32 Integer
-  | INT64 Integer
-  | INT128 Integer
-  | FLOAT8 Double
-  | FLOAT16 Double
-  | FLOAT32 Double
-  | FLOAT64 Double
-  | FLOAT128 Double
+  | INT8
+  | INT16
+  | INT32
+  | INT64
+  | INT128
+  | FLOAT8
+  | FLOAT16
+  | FLOAT32
+  | FLOAT64
+  | FLOAT128
   | FNumber Double
   | INumber Integer
   | Sparse
@@ -108,8 +111,8 @@ instance (Eq i) => Alternative (Lexer i) where
           Right (offset', output, rest) -> Right (offset', output, rest)
       Right (offset'', output, rest) -> Right (offset'', output, rest)
 
-token :: (i -> LexerErrorType i) -> (i -> Bool) -> Lexer i i
-token mkErr predicate = Lexer $ \input offset ->
+token' :: (i -> LexerErrorType i) -> (i -> Bool) -> Lexer i i
+token' mkErr predicate = Lexer $ \input offset ->
   case input of
     [] -> Left [LexerError offset EndOfInput]
     hd : rest
@@ -117,13 +120,12 @@ token mkErr predicate = Lexer $ \input offset ->
       | otherwise -> Left [LexerError offset $ mkErr hd]
 
 satisfy :: (i -> Bool) -> Lexer i i
-satisfy = token Unexpected
+satisfy = token' Unexpected
 
+char :: (Eq i) => i -> Lexer i i
+char i = token' (Expected i) (== i)
 
-char :: Eq i => i -> Lexer i i
-char i = token (Expected i) (== i)
-
-string :: Eq i => [i] -> Lexer i [i]
+string :: (Eq i) => [i] -> Lexer i [i]
 string [] = return []
 string (x : xs) = do
   y <- char x
@@ -133,5 +135,100 @@ string (x : xs) = do
 eof :: Lexer i ()
 eof = Lexer $ \input offset ->
   case input of
-    [] -> Right (0, (), [])
+    [] -> Right (offset, (), [])
     hd : _ -> Left [LexerError offset $ ExpectedEndOfFile hd]
+
+anyString :: Lexer Char String
+anyString = some (satisfy isAlpha)
+
+anyNumber :: Lexer Char String
+anyNumber = some (satisfy isNumber)
+
+number :: Lexer Char Token
+number = do
+  digits <- anyNumber
+  hasDecimal <- optional (satisfy (== '.'))
+  case hasDecimal of
+    Nothing -> pure $ INumber (read digits)
+    Just _ -> do
+      digits' <- anyNumber
+      pure $ FNumber (read $ digits ++ "." ++ digits')
+
+identifier :: Lexer Char Token
+identifier = do
+  word <- anyString
+  case word of
+    "PROGRAMM" -> pure PROGRAMM
+    "CONST" -> pure CONST
+    "VAR" -> pure VAR
+    "PROCEDURE" -> pure PROCEDURE
+    "CALL" -> pure CALL
+    "READ" -> pure READ
+    "WRITE" -> pure WRITE
+    "BEGIN" -> pure BEGIN
+    "IF" -> pure IF
+    "THEN" -> pure THEN
+    "WHILE" -> pure WHILE
+    "DO" -> pure DO
+    "NOT" -> pure NOT
+    "INT8" -> pure INT8
+    "INT16" -> pure INT16
+    "INT32" -> pure INT32
+    "INT64" -> pure INT64
+    "INT128" -> pure INT128
+    "FLOAT8" -> pure FLOAT8
+    "FLOAT16" -> pure FLOAT16
+    "FLOAT32" -> pure FLOAT32
+    "FLOAT64" -> pure FLOAT64
+    "FLOAT128" -> pure FLOAT128
+    "Sparse" -> pure Sparse
+    "Identity" -> pure Identity
+    "Diagonal" -> pure Diagonal
+    "Orthogonal" -> pure Orthogonal
+    "LowerTriangular" -> pure LowerTriangular
+    _ -> pure $ Identifier word
+
+symbols :: [Char] -> Lexer Char Char
+symbols options = foldr1 (<|>) (map char options)
+
+operator :: Lexer Char Token
+operator = do
+  symbol <- symbols ['=', '<', '>', '(', ')', '[', ']', '.', ';']
+  case symbol of
+    '=' -> pure Equals
+    '<' -> pure LessThen
+    '>' -> pure GreaterThen
+    '(' -> pure LParent
+    ')' -> pure RParrent
+    '[' -> pure LSquareParrent
+    ']' -> pure RSquareParrent
+    '.' -> pure Dot
+    ';' -> pure SemiColon
+    _ -> Lexer $ \_ offset ->
+      Left [LexerError offset $ Unexpected symbol]
+
+whitespace :: Lexer Char ()
+whitespace = do
+  spaces <- some (satisfy isSpace)
+  Lexer $ \input offset ->
+    Right (offset + length spaces, (), input)
+
+token'' :: Lexer Char Token
+token'' = identifier <|> number <|> operator
+
+nextToken :: Lexer Char Token
+nextToken = do
+  _ <- optional whitespace
+  token''
+
+nextTokenWithPos :: Lexer Char TokenPos
+nextTokenWithPos = do
+  _ <- optional whitespace
+  Lexer $ \input offset ->
+    case runLexer token'' input offset of
+      Left err -> Left err
+      Right (offset', tok, rest) ->
+        Right (offset', TokenPos offset tok, rest)
+
+tokenize :: String -> Either [LexerError Char] (Offset, [TokenPos], [Char])
+tokenize input = runLexer (many nextTokenWithPos <* eof) input 0

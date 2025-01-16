@@ -60,7 +60,7 @@ executable V
 
     -- .hs or .lhs file containing the Main module.
     main-is:          Main.hs
-
+    other-modules:    Lexer
     -- Modules included in this executable, other than Main.
     -- other-modules:
 
