@@ -23,7 +23,7 @@ jobs:
       - uses: haskell-actions/setup@v2
         id: setup
         with:
-          ghc-version: '9.2'
+          ghc-version: '9.4'
           cabal-version: 'latest'
       - name: Configure the build
         run: |
