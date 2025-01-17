@@ -24,7 +24,7 @@ jobs:
         id: setup
         with:
           ghc-version: '9.2'
-          cabal-version: '3.0'
+          cabal-version: 'latest'
       - name: Configure the build
         run: |
           cabal configure --enable-tests --enable-benchmarks --disable-documentation
