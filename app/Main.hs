@@ -1,5 +1,4 @@
 module Main where
-
 import Lexer (tokenize)
 
 x :: String

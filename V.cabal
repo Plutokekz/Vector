@@ -54,13 +54,18 @@ extra-doc-files:    CHANGELOG.md
 common warnings
     ghc-options: -Wall
 
+library lexer-lib
+    exposed-modules: Lexer
+    hs-source-dirs: lib
+    build-depends: base ^>=4.17.2.1
+    default-language: GHC2021
+
 executable V
     -- Import common warning flags.
     import:           warnings
 
     -- .hs or .lhs file containing the Main module.
     main-is:          Main.hs
-    other-modules:    Lexer
     -- Modules included in this executable, other than Main.
     -- other-modules:
 
@@ -68,10 +73,19 @@ executable V
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base ^>=4.17.2.1
+    build-depends:    base ^>=4.17.2.1, lexer-lib
 
     -- Directories containing source files.
     hs-source-dirs:   app
 
     -- Base language which the package is written in.
     default-language: GHC2021
+test-suite tests
+    type: exitcode-stdio-1.0
+    ghc-options: -Wall
+    main-is: Spec.hs
+    build-depends: base ^>=4.17.2.1, hspec ^>=2.11.10, lexer-lib
+    hs-source-dirs: tests
+    default-language: GHC2021
+    other-modules: LexerSpec
+    build-tool-depends: hspec-discover:hspec-discover == 2.11.10 
