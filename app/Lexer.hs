@@ -34,6 +34,7 @@ data Token
   | DO
   | NOT
   | Identifier String
+  | END
   -- simple comparison operators
   | Equals
   | LessThen
@@ -43,8 +44,10 @@ data Token
   | RParent
   | Dot
   | SemiColon
-  | RSquareParent
-  | LSquareParent
+  | Colon
+  | Comma
+  | LBracket
+  | RBracket
   -- number types
   | INT8
   | INT16
@@ -70,9 +73,7 @@ data Token
   | Transpose
   -- compound operators
   -- element wise operators
-  | ElementAdd
   | ElementMult
-  | ElementSub
   | ElementDiv
   -- compound comparison operators (less than or equal to...)
   | LTE
@@ -210,6 +211,7 @@ identifier = do
     "Diagonal" -> pure Diagonal
     "Orthogonal" -> pure Orthogonal
     "LowerTriangular" -> pure LowerTriangular
+    "END" -> pure END
     _ -> pure $ Identifier word
 
 symbols :: [Char] -> Lexer Char Char
@@ -217,17 +219,15 @@ symbols options = foldr1 (<|>) (map char options)
 
 operator :: Lexer Char Token
 operator = do
-  symbol <- symbols ['=', '<', '>', '(', ')', '[', ']', '.', ';', '@', '\'']
+  symbol <- symbols ['=', '<', '>', '(', ')', '[', ']', '.', ';', '@', '\'', ',', ':']
 
   -- Cases for compound operators such
   case symbol of
     '.' -> do
       -- Look ahead for the next character
-      next <- optional (symbols ['+', '*', '-', '/'])
+      next <- optional (symbols ['*', '/'])
       case next of
-        Just '+' -> pure ElementAdd
         Just '*' -> pure ElementMult
-        Just '-' -> pure ElementSub
         Just '/' -> pure ElementDiv
         Nothing  -> pure Dot
     '<' -> do
@@ -247,9 +247,11 @@ operator = do
     '=' -> pure Equals
     '(' -> pure LParent
     ')' -> pure RParent
-    '[' -> pure LSquareParent
-    ']' -> pure RSquareParent
+    ',' -> pure Comma
+    '[' -> pure LBracket
+    ']' -> pure RBracket
     ';' -> pure SemiColon
+    ':' -> pure Colon
     '@' -> pure MatrixMult
     '\'' -> pure Transpose
     _ -> Lexer $ \_ offset ->
