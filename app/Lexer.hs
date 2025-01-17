@@ -20,6 +20,7 @@ data TokenPos = TokenPos {tokenOffset :: Offset, token :: Token} deriving (Show,
 
 data Token
   = PROGRAMM
+  -- programm keywords
   | CONST
   | VAR
   | PROCEDURE
@@ -33,15 +34,18 @@ data Token
   | DO
   | NOT
   | Identifier String
+  -- simple comparison operators
   | Equals
   | LessThen
   | GreaterThen
+  -- syntactical elements
   | LParent
-  | RParrent
+  | RParent
   | Dot
   | SemiColon
-  | RSquareParrent
-  | LSquareParrent
+  | RSquareParent
+  | LSquareParent
+  -- number types
   | INT8
   | INT16
   | INT32
@@ -54,11 +58,31 @@ data Token
   | FLOAT128
   | FNumber Double
   | INumber Integer
+  -- matrix types
   | Sparse
   | Identity
   | Diagonal
   | Orthogonal
   | LowerTriangular
+  | UpperTriangular
+  -- simple matrix operators
+  | MatrixMult
+  | Transpose
+  -- compound operators
+  -- element wise operators
+  | ElementAdd
+  | ElementMult
+  | ElementSub
+  | ElementDiv
+  -- compound comparison operators (less than or equal to...)
+  | LTE
+  | GTE
+  | NotEqual
+  -- logical operators
+  | True
+  | False
+  | And
+  | Or
   deriving (Show, Eq)
 
 -- define a newtype Lexer with kind i and a with a constructor Lexer with a function runLexer
@@ -193,17 +217,41 @@ symbols options = foldr1 (<|>) (map char options)
 
 operator :: Lexer Char Token
 operator = do
-  symbol <- symbols ['=', '<', '>', '(', ')', '[', ']', '.', ';']
+  symbol <- symbols ['=', '<', '>', '(', ')', '[', ']', '.', ';', '@', '\'']
+
+  -- Cases for compound operators such
   case symbol of
+    '.' -> do
+      -- Look ahead for the next character
+      next <- optional (symbols ['+', '*', '-', '/'])
+      case next of
+        Just '+' -> pure ElementAdd
+        Just '*' -> pure ElementMult
+        Just '-' -> pure ElementSub
+        Just '/' -> pure ElementDiv
+        Nothing  -> pure Dot
+    '<' -> do
+      -- Look ahead for =
+      next <- optional (char '=')
+      case next of
+        Just _  -> pure LTE
+        Nothing -> pure LessThen
+    '>' -> do
+      -- Look ahead for =
+      next <- optional (char '=')
+      case next of
+        Just _  -> pure GTE
+        Nothing -> pure GreaterThen
+
+    -- simple operators
     '=' -> pure Equals
-    '<' -> pure LessThen
-    '>' -> pure GreaterThen
     '(' -> pure LParent
-    ')' -> pure RParrent
-    '[' -> pure LSquareParrent
-    ']' -> pure RSquareParrent
-    '.' -> pure Dot
+    ')' -> pure RParent
+    '[' -> pure LSquareParent
+    ']' -> pure RSquareParent
     ';' -> pure SemiColon
+    '@' -> pure MatrixMult
+    '\'' -> pure Transpose
     _ -> Lexer $ \_ offset ->
       Left [LexerError offset $ Unexpected symbol]
 
@@ -232,3 +280,5 @@ nextTokenWithPos = do
 
 tokenize :: String -> Either [LexerError Char] (Offset, [TokenPos], [Char])
 tokenize input = runLexer (many nextTokenWithPos <* eof) input 0
+
+-- Missing / Additional Feature: comment support for the language
