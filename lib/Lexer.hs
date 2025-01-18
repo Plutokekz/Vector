@@ -3,6 +3,7 @@ module Lexer where
 import Control.Applicative (Alternative (..), optional)
 import Data.Char (isAlpha, isNumber, isSpace)
 import Data.List (nub)
+import Data.Maybe (fromMaybe)
 
 type Offset = Int
 
@@ -182,7 +183,9 @@ number = do
 identifier :: Lexer Char Token
 identifier = do
   word <- anyString
-  case word of
+  n <- optional anyNumber
+  let ident = word ++ fromMaybe "" n
+  case ident of
     "PROGRAMM" -> pure PROGRAMM
     "CONST" -> pure CONST
     "VAR" -> pure VAR
@@ -261,7 +264,7 @@ whitespace :: Lexer Char ()
 whitespace = do
   spaces <- some (satisfy isSpace)
   Lexer $ \input offset ->
-    Right (offset + length spaces, (), input)
+    Right (offset, (), input)
 
 token'' :: Lexer Char Token
 token'' = identifier <|> number <|> operator
