@@ -2,6 +2,8 @@
 
 ## Grammar
 
+The syntax diagramm for the courrent grammar can be found in the [grammar](grammar/README.md) directory
+
 * Extension to MI  
 * LL(1) Parser  
 * EBNF
