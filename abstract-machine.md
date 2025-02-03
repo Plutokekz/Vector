@@ -46,12 +46,14 @@ $$
 
 We can push something on the Stack:
 Thereby they lengthen the stack. 
+
 $$T:=T+1;\\\text{store}[T]:=\text{store}[i]$$
 
 #### Pop
 
 Or we can pop something from the stack:
 Thereby, they're shortening the stack.
+
 $$T:=T-1;\\\text{store}[i]:=\text{store}[T]$$
 
 ## Registers
@@ -123,45 +125,57 @@ $$T:=T+1;\\ \text{store}[T]:=\text{store}[\text{base}(s)+o]$$
 
 * STO (store): removes the top cell and after saving its contents in a relatively addressed cell.
 * STO $s i$ ($i$ non-negative integer):
+
 $$\text{store}[\text{base}(s)+i] := \text{store}[T];\\ T := T - 1$$
 
 
 * INC (increment): enlarges a segment
 * INC $i$ ($i$ non-negative integer):
+
 $$T := T + i$$
 
 
 * LIT (literal): loads an integer on the stack
 * LIT $n$ ($n$ integer):
+
 $$T:=T+1; \text{store}[T] := n$$
 
 * JMP (jump): unconditional jump
 * JMP $a$ ($a$ code address):
+
 $$P := a$$
 
 
 * JOT (jump-on-true): conditional jump
 * JOT $a$ ($a$ code address):
+
 $$\text{if} (\text{store}[T] == \text{true})\\ P := a;\\ T := T-1$$
 
 * JOF (jump-on-false): conditional jump
 * JOF $a$ ($a$ code address):
+
 $$\text{if} (\text{store}[T] == \text{false})\\ P := a;\\ T := T-1$$
 
 * CAL (call): procedure call
 * CAL $s a$ ($s$ step, an integer, $a$ code address)
+
 $$ T := T+1;\\ \text{store}[T+0] := B;\\ \text{store}[T+1] := P;\\ \text{store}[T+2] := \text{base}(s);\\ B := T;\\ T := B+2;\\ P := a$$
 
 * RET (return): return from a procedure
+
 $$P := \text{store}[B+1];\\ T := B-1;\\ B := \text{store}[B]$$
 
 * REA (read): reads and loads an input, it on the stack
+
 $$ T:=T+1;\\ \text{store}[T] := \text{read}()$$
 
 * WRI (write): output the value on top of the stack and remove the top stack cell
+
 $$ \text{write}(\text{store}[T])\\
+
 T := T-1$$
 * HLT (halt): halts the abstract machine MI (see MI’s main cycle)
+
 $$\text{HLT}$$
 
 
@@ -169,30 +183,56 @@ For efficient matrix operations, we would need to know input and output type. An
 
 ### OPR (operator): arithmetic operators 
 * OPR +:
+
 $$ \text{store}[T-1] := (\text{store}[T-1] + \text{store}[T]);\\ T := T-1$$
+
 * OPR -:
+
 $$ \text{store}[T-1] := (\text{store}[T-1] - \text{store}[T]);\\ T := T-1$$
+
 * OPR *:
+
 $$ \text{store}[T-1] := (\text{store}[T-1] * \text{store}[T]);\\ T := T-1$$
+
 * OPR /:
+
 $$ \text{store}[T-1] := (\text{store}[T-1] / \text{store}[T]);\\ T := T-1$$
+
 * OPR .*:
-$$ \text{store}[T-1] := (\text{store}[T-1] \text{ ElementMult } \text{store}[T]);\\ T := T-1 $$
+
+$$ \text{store}[T-1] := (\text{store}[T-1] \text{ ElementMult } \text{store}[T]);
+\\ T := T-1 $$
+
 * OPR ./:
+
 $$ \text{store}[T-1] := (\text{store}[T-1] \text{ ElementDiv } \text{store}[T]);\\ T := T-1 $$
+
 * OPR @:
+
 $$ \text{store}[T-1] := (\text{store}[T-1] \text{ MatrixMult } \text{store}[T]);\\ T := T-1 $$
 
 ### OPR (operator): Boolean operators
+
 * OPR NOT:
+
 $$ \text{store}[T]:= \text{not}(\text{store}[T])$$
+
 * OPR ==:
+
 $$ \text{store}[T-1] := (\text{store}[T-1] == \text{store}[T]); T := T-1 $$
+
 * OPR <:
+
 $$ \text{store}[T-1] := (\text{store}[T-1] < \text{store}[T]); T := T-1 $$
+
 * OPR >:
+
 $$ \text{store}[T-1]:= (\text{store}[T-1] > \text{store}[T]); T := T-1 $$
+
 * OPR <=:
+
 $$ \text{store}[T-1] := (\text{store}[T-1] <= \text{store}[T]); T := T-1 $$
+
 * OPR >=:
+
 $$ \text{store}[T-1]:= (\text{store}[T-1] >= \text{store}[T]); T := T-1 $$
