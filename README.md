@@ -94,3 +94,8 @@ Function that should be directly implemented on the Abstract machine level. We w
 ### Optimizer
 
 * Adam
+
+## Abstract machine
+
+The Abstract machine for V is called MV and is specified in [abstract-machine.md](abstract-machine.md).
+MV is inspired from Pascal's abstract machine, which it significantly simplifies and modifies.
