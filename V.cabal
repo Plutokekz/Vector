@@ -55,11 +55,10 @@ common warnings
     ghc-options: -Wall
 
 library lexer-lib
-    exposed-modules: Lexer
+    exposed-modules: Lexer Token
     hs-source-dirs: lib
     build-depends: base ^>=4.17.2.1
     default-language: GHC2021
-    other-modules: Token
 
 library abstract-machine-lib
     exposed-modules: Machine

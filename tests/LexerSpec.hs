@@ -1,6 +1,7 @@
 module LexerSpec (spec) where
 
-import Lexer (Lexer (runLexer), LexerError (..), LexerErrorType (..), Token (..), identifier, number, operator, runLexer, string, token', whitespace)
+import Lexer (Lexer (runLexer), identifier, number, operator, runLexer, string, token', whitespace)
+import Token (LexerError (..), LexerErrorType (..), Token (..))
 import Test.Hspec
 
 spec :: Spec
