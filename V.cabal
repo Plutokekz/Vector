@@ -59,6 +59,14 @@ library lexer-lib
     hs-source-dirs: lib
     build-depends: base ^>=4.17.2.1
     default-language: GHC2021
+    other-modules: Token
+
+library abstract-machine-lib
+    exposed-modules: Machine
+    hs-source-dirs: lib
+    build-depends: base ^>=4.17.2.1, mtl ^>=2.3.1
+    default-language: GHC2021
+    other-modules: Ast
 
 executable V
     -- Import common warning flags.
