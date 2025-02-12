@@ -13,14 +13,15 @@ debugState label = do
 
 data Instruction
   = RST
-  | LOD Int Int
-  | STO Int Int
-  | INC Int
-  | LIT Int
-  | JMP Label
-  | JOT Label
-  | JOF Label
-  | CAL Int Int
+  | LOD Integer Integer
+  | STO Integer Integer
+  | INC Integer
+  | LITI Integer -- Load imidieate integer
+  | LITF Double -- load imideate float
+  | JMP Integer
+  | JOT Integer
+  | JOF Integer
+  | CAL Integer Integer
   | RET
   | OPR Operator
   | REA
@@ -34,15 +35,22 @@ data Operator
   | Div
   | Eq
   | Lt
+  | Lte
   | Gt
+  | Gte
   | Not
+  | MatrixMul
+  | ElementMul
+  | ElementDiv
+  deriving (Show)
 
 instance Show Instruction where
   show RST = "RST"
   show (LOD s i) = "LOD " ++ show s ++ " " ++ show i
   show (STO s i) = "STO " ++ show s ++ " " ++ show i
   show (INC n) = "INC " ++ show n
-  show (LIT n) = "LIT " ++ show n
+  show (LITI n) = "LITI " ++ show n
+  show (LITF n) = "LITF " ++ show n
   show (JMP l) = "JMP " ++ show l
   show (JOT l) = "JOT " ++ show l
   show (JOF l) = "JOF " ++ show l
@@ -53,34 +61,22 @@ instance Show Instruction where
   show WRI = "WRI"
   show HLT = "HLT"
 
-instance Show Operator where
-  show Add = "Add"
-  show Sub = "Sub"
-  show Mul = "Mul"
-  show Div = "Div"
-  show Machine.Eq = "Eq"
-  show Machine.Lt = "Lt"
-  show Machine.Gt = "Gt"
-  show Machine.Not = "Not"
-
 deriving instance Eq Instruction
 
 deriving instance Eq Operator
 
-type Label = String
-
 data TableEntry
-  = MVariable {name :: String, depth :: Int, nameCount :: Int}
-  | MProcedure {name :: String, depth :: Int, codeAddress :: Int}
+  = MVariable {name :: String, depth :: Integer, nameCount :: Integer}
+  | MProcedure {name :: String, depth :: Integer, codeAddress :: Integer}
   deriving (Show, Eq)
 
 type NameTable = [TableEntry]
 
 data CompilerState = CompilerState
   { symbolTable :: NameTable,
-    depthCounter :: Int,
-    nameCounter :: Int,
-    codeCounter :: Int
+    depthCounter :: Integer,
+    nameCounter :: Integer,
+    codeCounter :: Integer
   }
   deriving (Show)
 
@@ -95,7 +91,7 @@ popScope = do
   currentDepth <- gets depthCounter
   modify $ \s -> s {symbolTable = filter (\e -> depth e /= currentDepth) (symbolTable s)}
 
-lookupName :: String -> Compiler (Int, Int)
+lookupName :: String -> Compiler (Integer, Integer)
 lookupName findName = do
   currentDepth <- gets depthCounter
   table <- gets symbolTable
@@ -129,10 +125,10 @@ genBlock (Block const variables procedures body) = do
   -- Only include JMP if there are procedures
   if null procedures
     then return $ constCode ++ variableCode ++ statementCode
-    else return $ constCode ++ variableCode ++ [JMP "statement"] ++ proceduresCode ++ statementCode
+    else return $ constCode ++ variableCode ++ [JMP 0] ++ proceduresCode ++ statementCode
 
 genStatement :: Statement -> Compiler [Instruction]
-genStatement (Assign name expression) = do
+genStatement (Assignment name expression) = do
   (stufe, offset) <- lookupName name
   exprCode <- genExpr expression
   return $ exprCode ++ [STO stufe offset]
@@ -145,75 +141,72 @@ genStatement (Read name) = do
 genStatement (Write expression) = do
   exprCode <- genExpr expression
   return $ exprCode ++ [WRI]
-genStatement (Begin statements) = do
+genStatement (Compound statements) = do
   codes <- mapM genStatement statements
   return $ concat codes
 genStatement (If condition statement) = do
   labelNum <- gets codeCounter
   modify $ \s -> s {codeCounter = codeCounter s + 1}
-  let endLabel = "if_end_" ++ show labelNum
   condCode <- genCondition condition
   stmtCode <- genStatement statement
   return $
     condCode
-      ++ [JOF endLabel]
+      ++ [JOF labelNum]
       ++ stmtCode
-      ++ [JMP endLabel]
+      ++ [JMP labelNum]
 genStatement (While condition statement) = do
   labelNum <- gets codeCounter
   modify $ \s -> s {codeCounter = codeCounter s + 1}
-  let startLabel = "while_" ++ show labelNum
-  let endLabel = "wend_" ++ show labelNum
   condCode <- genCondition condition
   stmtCode <- genStatement statement
   return $
-    [JMP startLabel]
+    [JMP labelNum]
       ++ condCode
-      ++ [JOF endLabel]
+      ++ [JOF labelNum]
       ++ stmtCode
-      ++ [JMP startLabel]
+      ++ [JMP labelNum]
 
 genExpr :: Expression -> Compiler [Instruction]
-genExpr (Num n) = return [LIT n]
-genExpr (Var name) = do
-  (stufe, offset) <- lookupName name
-  return [LOD stufe offset]
-genExpr (Plus e1 e2) = do
-  code1 <- genExpr e1
-  code2 <- genExpr e2
-  return $ code1 ++ code2 ++ [OPR Add]
-genExpr (Minus e1 e2) = do
-  code1 <- genExpr e1
-  code2 <- genExpr e2
-  return $ code1 ++ code2 ++ [OPR Sub]
-genExpr (Times e1 e2) = do
-  code1 <- genExpr e1
-  code2 <- genExpr e2
-  return $ code1 ++ code2 ++ [OPR Mul]
-genExpr (Divide e1 e2) = do
-  code1 <- genExpr e1
-  code2 <- genExpr e2
-  return $ code1 ++ code2 ++ [OPR Div]
-genExpr (Neg e) = do
-  code <- genExpr e
-  return $ [LIT 0] ++ code ++ [OPR Sub]
+genExpr (Binary op expr1 expr2) = do
+  expr1Code <- genExpr expr1
+  expr2Code <- genExpr expr2
+  op <- genBinOp op
+  return $ expr1Code ++ expr2Code ++ op
+genExpr (Unary op expr) = return []
+genExpr (Factor factor) = return []
+
+genBinOp :: BinOp -> Compiler [Instruction]
+genBinOp Ast.Add = return [OPR Machine.Add]
+genBinOp Ast.Sub = return [OPR Machine.Sub]
+genBinOp Ast.Mul = return [OPR Machine.Mul]
+genBinOp Ast.Div = return [OPR Machine.Div]
+genBinOp Ast.MatrixMul = return [OPR Machine.MatrixMul]
+genBinOp Ast.ElementMul = return [OPR Machine.ElementMul]
+genBinOp Ast.ElementDiv = return [OPR Machine.ElementDiv]
 
 genCondition :: Condition -> Compiler [Instruction]
-genCondition (Ast.Eq e1 e2) = do
-  code1 <- genExpr e1
-  code2 <- genExpr e2
-  return $ code1 ++ code2 ++ [OPR Machine.Eq]
-genCondition (Ast.Lt e1 e2) = do
-  code1 <- genExpr e1
-  code2 <- genExpr e2
-  return $ code1 ++ code2 ++ [OPR Machine.Lt]
-genCondition (Ast.Gt e1 e2) = do
-  code1 <- genExpr e1
-  code2 <- genExpr e2
-  return $ code1 ++ code2 ++ [OPR Machine.Gt]
-genCondition (Ast.Not c) = do
-  code <- genCondition c
-  return $ code ++ [OPR Machine.Not]
+genCondition (Ast.Compare expr1 compOp expr2) = do
+  expr1Code <- genExpr expr1
+  expr2Code <- genExpr expr2
+  opr <- genCompare compOp
+  return $ expr1Code ++ expr2Code ++ opr
+genCondition (Ast.Not condition) = do
+  conditionCode <- genCondition condition
+  return $ conditionCode ++ [OPR Machine.Not]
+
+genCompare :: CompOp -> Compiler [Instruction]
+genCompare Ast.Eq = do
+  return [OPR Machine.Eq]
+genCompare Ast.Lt = do
+  return [OPR Machine.Lt]
+genCompare Ast.Gt = do
+  return [OPR Machine.Gt]
+genCompare Ast.Lte = do
+  return [OPR Machine.Lte]
+genCompare Ast.Gte = do
+  return [OPR Machine.Gte]
+genCompare Ast.Neq = do
+  return [OPR Machine.Not]
 
 genProcedures :: [Procedure] -> Compiler [Instruction]
 genProcedures [] = return []
@@ -231,23 +224,25 @@ genProcedure (Procedure name block) = do
   debugState "after block"
   return $ blockCode ++ [RET]
 
-genConstants :: [(String, Int)] -> Compiler [Instruction]
+genConstants :: [(String, Type, Value)] -> Compiler [Instruction]
 genConstants [] = return []
 genConstants consts = do
   let numConsts = length consts
-  let allocSpace = [INC numConsts]
+  let allocSpace = [INC (toInteger numConsts)]
   initCode <- concat <$> mapM genConst consts
 
   return $ allocSpace ++ initCode
 
-genConst :: (String, Int) -> Compiler [Instruction]
-genConst (name, value) = do
+genConst :: (String, Type, Value) -> Compiler [Instruction]
+genConst (name, _, value) = do
   depth <- gets depthCounter
   offset <- gets nameCounter
   modify $ \s -> s {nameCounter = nameCounter s + 1, symbolTable = MVariable name depth offset : symbolTable s}
-  return [LIT value, STO 0 offset]
+  case value of
+    IntVal val -> return [LITI val, STO 0 offset]
+    FloatVal val -> return [LITF val, STO 0 offset]
 
-genVariable :: [String] -> Compiler [Instruction]
+genVariable :: [(String, Type)] -> Compiler [Instruction]
 genVariable [] = return []
 genVariable names = do
   nameCounter <- gets nameCounter
@@ -259,11 +254,11 @@ genVariable names = do
         nameCounter = nameCount,
         symbolTable = entries ++ symbolTable s
       }
-  return [INC $ length names]
+  return [INC $ toInteger (length names)]
 
-genMVariables :: [TableEntry] -> [String] -> Int -> Int -> ([TableEntry], Int)
+genMVariables :: [TableEntry] -> [(String, Type)] -> Integer -> Integer -> ([TableEntry], Integer)
 genMVariables acc [] depth nameCount = (acc, nameCount)
-genMVariables acc (name : xs) depth nameCount = genMVariables (MVariable name depth (nameCount + 1) : acc) xs depth $ nameCount + 1
+genMVariables acc ((name, t) : xs) depth nameCount = genMVariables (MVariable name depth (nameCount + 1) : acc) xs depth $ nameCount + 1
 
 initialState :: CompilerState
 initialState =
