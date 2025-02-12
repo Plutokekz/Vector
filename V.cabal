@@ -66,6 +66,12 @@ library abstract-machine-lib
     build-depends: base ^>=4.17.2.1, mtl ^>=2.3.1
     default-language: GHC2021
 
+library simple-parser-lib
+    exposed-modules: SimpleParser Ast Lexer Token
+    hs-source-dirs: lib
+    build-depends: base ^>=4.17.2.1, mtl ^>=2.3.1, containers ^>=0.6.7
+    default-language: GHC2021
+
 executable V
     -- Import common warning flags.
     import:           warnings

@@ -57,6 +57,10 @@ data Token
   | FLOAT128
   | FNumber Double
   | INumber Integer
+  | Minus
+  | Plus
+  | Times
+  | Divide
   -- matrix types
   | Sparse
   | Identity
