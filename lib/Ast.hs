@@ -15,25 +15,25 @@ data Procedure = Procedure
   }
 
 data Statement
-  = Assign String Expr
+  = Assign String Expression
   | Call String
   | Read String
-  | Write Expr
+  | Write Expression
   | Begin [Statement]
   | If Condition Statement
   | While Condition Statement
 
 data Condition
-  = Eq Expr Expr
-  | Lt Expr Expr
-  | Gt Expr Expr
+  = Eq Expression Expression
+  | Lt Expression Expression
+  | Gt Expression Expression
   | Not Condition
 
-data Expr
+data Expression
   = Var String
   | Num Int
-  | Plus Expr Expr
-  | Minus Expr Expr
-  | Times Expr Expr
-  | Divide Expr Expr
-  | Neg Expr
+  | Plus Expression Expression
+  | Minus Expression Expression
+  | Times Expression Expression
+  | Divide Expression Expression
+  | Neg Expression
