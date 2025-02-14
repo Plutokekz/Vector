@@ -35,10 +35,10 @@ license:            GPL-2.0-or-later
 license-file:       LICENSE
 
 -- The package author(s).
-author:             Lukas Mahr, Another Author
+author:             Lukas Mahr, Federico Harjes
 
 -- An email address to which users can send suggestions, bug reports, and patches.
-maintainer:         Lukas.Mahr@campus.lmu.de, f.harjes@campus.lmu.de
+maintainer:         Lukas.Mahr@campus.lmu.de, F.Harjes@campus.lmu.de
 
 -- A copyright notice.
 -- copyright:
@@ -54,20 +54,31 @@ extra-doc-files:    CHANGELOG.md
 common warnings
     ghc-options: -Wall
 
-library lexer-lib
-    exposed-modules: Lexer Token
-    hs-source-dirs: lib
-    build-depends: base ^>=4.17.2.1
-    default-language: GHC2021
+-- library lexer-lib
+--     exposed-modules: Lexer Token
+--     hs-source-dirs: lib
+--     build-depends: base ^>=4.17.2.1
+--     default-language: GHC2021
 
-library abstract-machine-lib
-    exposed-modules: Machine Ast
-    hs-source-dirs: lib
-    build-depends: base ^>=4.17.2.1, mtl ^>=2.3.1
-    default-language: GHC2021
+-- library abstract-machine-lib
+--     exposed-modules: Machine Ast
+--     hs-source-dirs: lib
+--     build-depends: base ^>=4.17.2.1, mtl ^>=2.3.1
+--     default-language: GHC2021
 
-library simple-parser-lib
-    exposed-modules: SimpleParser Ast Lexer Token
+-- library simple-parser-lib
+--     exposed-modules: SimpleParser Ast Lexer Token
+--     hs-source-dirs: lib
+--     build-depends: base ^>=4.17.2.1, mtl ^>=2.3.1, containers ^>=0.6.7
+--     default-language: GHC2021
+
+library compiler-lib
+    exposed-modules:
+        Lexer
+        Token
+        SimpleParser
+        Ast
+        Machine
     hs-source-dirs: lib
     build-depends: base ^>=4.17.2.1, mtl ^>=2.3.1, containers ^>=0.6.7
     default-language: GHC2021
@@ -85,7 +96,7 @@ executable V
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base ^>=4.17.2.1, lexer-lib
+    build-depends:    base ^>=4.17.2.1, compiler-lib
 
     -- Directories containing source files.
     hs-source-dirs:   app
@@ -96,7 +107,7 @@ test-suite tests
     type: exitcode-stdio-1.0
     ghc-options: -Wall
     main-is: Spec.hs
-    build-depends: base ^>=4.17.2.1, hspec ^>=2.11.10, mtl ^>=2.3.1, lexer-lib, abstract-machine-lib
+    build-depends: base ^>=4.17.2.1, hspec ^>=2.11.10, mtl ^>=2.3.1, compiler-lib
     hs-source-dirs: tests
     default-language: GHC2021
     other-modules: LexerSpec MachineSpec
