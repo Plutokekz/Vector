@@ -1,8 +1,17 @@
-module Token where
+module Token (
+    Token(..),
+    TokenPos(..),
+    LexerError(..),
+    LexerErrorType(..),
+    Offset
+) where
 
 type Offset = Int
 
-data LexerError i = LexerError {erOffset :: Offset, erError :: LexerErrorType i} deriving (Eq, Show)
+data LexerError i = LexerError {
+  erOffset :: Offset, 
+  erError :: LexerErrorType i
+  } deriving (Eq, Show)
 
 data LexerErrorType i
   = EndOfInput
@@ -12,7 +21,10 @@ data LexerErrorType i
   | Expected i i
   deriving (Eq, Show)
 
-data TokenPos = TokenPos {tokenOffset :: Offset, token :: Token} deriving (Show, Eq)
+data TokenPos = TokenPos {
+  tokenOffset :: Offset, 
+  token :: Token
+  } deriving (Show, Eq)
 
 data Token
   = PROGRAMM
@@ -57,10 +69,6 @@ data Token
   | FLOAT128
   | FNumber Double
   | INumber Integer
-  | Minus
-  | Plus
-  | Times
-  | Divide
   -- matrix types
   | Sparse
   | Identity
@@ -80,8 +88,13 @@ data Token
   | GTE
   | NotEqual
   -- logical operators
-  | True
-  | False
+  | T
+  | F
   | And
   | Or
-  deriving (Show, Eq)
+  -- arithmetic operators
+  | Plus
+  | Minus
+  | Times
+  | Divide
+  deriving (Show, Eq, Ord)

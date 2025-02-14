@@ -1,10 +1,15 @@
-module Lexer where
+module Lexer (tokenize) where
 
 import Control.Applicative (Alternative (..), optional)
 import Data.Char (isAlpha, isNumber, isSpace)
 import Data.List (nub)
 import Data.Maybe (fromMaybe)
-import Token
+import Token (
+  Token(..),
+  TokenPos(..),
+  LexerError(..),
+  LexerErrorType(..),
+  Offset)
 
 -- define a newtype Lexer with kind i and a with a constructor Lexer with a function runLexer
 -- i is our input for the lexer so in most cases a Char
@@ -141,7 +146,7 @@ symbols options = foldr1 (<|>) (map char options)
 
 operator :: Lexer Char Token
 operator = do
-  symbol <- symbols ['=', '<', '>', '(', ')', '[', ']', '.', ';', '@', '\'', ',', ':']
+  symbol <- symbols ['=', '<', '>', '(', ')', '[', ']', '.', ';', '@', '\'', ',', ':', '+', '-', '*', '/']
 
   -- Cases for compound operators such
   case symbol of
@@ -151,18 +156,18 @@ operator = do
       case next of
         Just '*' -> pure ElementMult
         Just '/' -> pure ElementDiv
-        Nothing -> pure Dot
+        Nothing  -> pure Dot
     '<' -> do
       -- Look ahead for =
       next <- optional (char '=')
       case next of
-        Just _ -> pure LTE
+        Just _  -> pure LTE
         Nothing -> pure LessThen
     '>' -> do
       -- Look ahead for =
       next <- optional (char '=')
       case next of
-        Just _ -> pure GTE
+        Just _  -> pure GTE
         Nothing -> pure GreaterThen
 
     -- simple operators
@@ -176,14 +181,26 @@ operator = do
     ':' -> pure Colon
     '@' -> pure MatrixMult
     '\'' -> pure Transpose
+    '+' -> pure Plus
+    '-' -> pure Minus
+    '*' -> pure Times
+    '/' -> pure Divide
     _ -> Lexer $ \_ offset ->
       Left [LexerError offset $ Unexpected symbol]
 
+-- Handle comments
+comment :: Lexer Char ()
+comment = do
+    _ <- string "--"  -- Match comment start
+    _ <- many (satisfy (/= '\n'))  -- Match everything until newline
+    _ <- optional (char '\n')  -- Match optional newline
+    return ()
+
+-- Update whitespace to handle comments
 whitespace :: Lexer Char ()
 whitespace = do
-  spaces <- some (satisfy isSpace)
-  Lexer $ \input offset ->
-    Right (offset, (), input)
+    _ <- some (satisfy isSpace <|> (comment *> pure ' '))
+    return ()
 
 token'' :: Lexer Char Token
 token'' = identifier <|> number <|> operator
@@ -203,6 +220,6 @@ nextTokenWithPos = do
         Right (offset', TokenPos offset tok, rest)
 
 tokenize :: String -> Either [LexerError Char] (Offset, [TokenPos], [Char])
-tokenize input = runLexer (many nextTokenWithPos <* eof) input 0
+tokenize input = runLexer (many nextTokenWithPos <* optional whitespace <* eof) input 0
 
 -- Missing / Additional Feature: comment support for the language

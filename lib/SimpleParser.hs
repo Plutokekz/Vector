@@ -1,16 +1,5 @@
 module SimpleParser
-  ( parse,
-    ParseError (..),
-    Program (..), -- Export our AST types
-    Block (..),
-    Statement (..),
-    Expression (..),
-    Type (..),
-  )
 where
-
--- Import Lexer qualified
--- Still import TokenPos directly as it's not ambiguous
 
 import Control.Applicative (Alternative (..), many, optional)
 import Control.Monad.Except
@@ -18,14 +7,14 @@ import Control.Monad.State
 import qualified Data.Map as Map
 import Data.Monoid (Monoid (..))
 import Data.Semigroup (Semigroup (..))
-import qualified Token as T
+import Token (Token(..), TokenPos(..), tokenOffset, token)
 import Ast
 
 -- | Represents a parsing error with position information
 data ParseError = ParseError
   { errorPos :: Int,
-    expected :: [T.Token],
-    got :: T.Token
+    expected :: [Token],
+    got :: Token
   }
   deriving (Show, Eq)
 
@@ -35,13 +24,13 @@ instance Semigroup ParseError where
 
 -- | Monoid instance for ParseError - needed for many and some
 instance Monoid ParseError where
-  mempty = ParseError 0 [] (T.Identifier "") -- Should never be used
+  mempty = ParseError 0 [] (Identifier "")
   mappend = (<>)
 
 -- | Parser state containing current token position and remaining tokens
 data ParserState = ParserState
-  { currentToken :: T.TokenPos,
-    remainingTokens :: [T.TokenPos]
+  { currentToken :: TokenPos,
+    remainingTokens :: [TokenPos]
   }
   deriving (Show)
 
@@ -49,31 +38,31 @@ data ParserState = ParserState
 type Parser a = ExceptT ParseError (State ParserState) a
 
 -- | Initialize parser state with a list of tokens
-initParserState :: [T.TokenPos] -> ParserState
+initParserState :: [TokenPos] -> ParserState
 initParserState [] = error "Cannot parse empty token stream"
 initParserState (t : ts) = ParserState t ts
 
 -- | Main parsing function that takes a list of tokens and returns either an error or AST
-parse :: [T.TokenPos] -> Either ParseError Program
+parse :: [TokenPos] -> Either ParseError Program
 parse tokens = evalState (runExceptT parseProgram) (initParserState tokens)
 
 -- | Get the current token without consuming it
-peek :: Parser T.Token
-peek = gets (T.token . currentToken)
+peek :: Parser Token
+peek = gets (token . currentToken)
 
 -- | Consume and return the current token, advancing to the next one
-advance :: Parser T.Token
+advance :: Parser Token
 advance = do
   current <- gets currentToken
   remaining <- gets remainingTokens
   case remaining of
-    [] -> return $ T.token current -- At end of input
+    [] -> return $ token current -- At end of input
     (next : rest) -> do
       put $ ParserState next rest
-      return $ T.token current
+      return $ token current
 
 -- | Match a specific token, consuming it if it matches
-match :: T.Token -> Parser T.Token
+match :: Token -> Parser Token
 match expected = do
   actual <- peek
   current <- gets currentToken
@@ -82,7 +71,7 @@ match expected = do
     else
       throwError $
         ParseError
-          { errorPos = T.tokenOffset current,
+          { errorPos = tokenOffset current,
             expected = [expected],
             got = actual
           }
@@ -90,11 +79,11 @@ match expected = do
 -- | Parse a program according to the grammar
 parseProgram :: Parser Program
 parseProgram = do
-  match T.PROGRAMM
+  match PROGRAMM
   name <- parseIdentifier
-  match T.Colon
+  match Colon
   block <- parseBlock
-  match T.Dot
+  match Dot
   return $ Program name block
 
 -- | Parse an identifier
@@ -103,14 +92,14 @@ parseIdentifier = do
   tok <- peek
   current <- gets currentToken
   case tok of
-    T.Identifier name -> do
+    Identifier name -> do
       advance
       return name
     _ ->
       throwError $
         ParseError
-          { errorPos = T.tokenOffset current,
-            expected = [T.Identifier ""],
+          { errorPos = tokenOffset current,
+            expected = [Identifier ""],
             got = tok
           }
 
@@ -120,30 +109,29 @@ parseBlock = do
   consts <- parseConstDecls
   vars <- parseVarDecls
   procs <- parseProcDecls
-  instr <- parseInstruction
-  return $ Block consts vars procs instr
+  Block consts vars procs <$> parseInstruction
 
 -- | Parse constant declarations
 parseConstDecls :: Parser [(String, Type, Value)]
 parseConstDecls = do
   tok <- peek
   case tok of
-    T.CONST -> do
+    CONST -> do
       advance
       typ <- parseType
       name <- parseIdentifier
-      match T.Equals
+      match Equals
       val <- parseValue
       rest <-
         many
           ( do
-              match T.Comma
+              match Comma
               name' <- parseIdentifier
-              match T.Equals
+              match Equals
               val' <- parseValue
               return (name', typ, val')
           )
-      match T.SemiColon
+      match SemiColon
       return $ (name, typ, val) : rest
     _ -> return []
 
@@ -152,7 +140,7 @@ parseVarDecls :: Parser [(String, Type)]
 parseVarDecls = do
   tok <- peek
   case tok of
-    T.VAR -> do
+    VAR -> do
       advance
       let parseOneDecl = do
             baseType <- parseType
@@ -161,10 +149,10 @@ parseVarDecls = do
             case baseType of
               MatrixType {} -> do
                 mspec <- optional parseMatrixType
-                match T.SemiColon
+                match SemiColon
                 return (name, baseType {matrixSpec = mspec})
               _ -> do
-                match T.SemiColon
+                match SemiColon
                 return (name, baseType)
       -- Parse one or more declarations
       decls <- parseMany parseOneDecl
@@ -178,12 +166,12 @@ parseProcDecls :: Parser [Procedure]
 parseProcDecls = many $ do
   tok <- peek
   case tok of
-    T.PROCEDURE -> do
+    PROCEDURE -> do
       advance
       name <- parseIdentifier
-      match T.SemiColon
+      match SemiColon
       block <- parseBlock
-      match T.SemiColon
+      match SemiColon
       return $ Procedure name block
     _ -> empty -- Use empty from Alternative instead of return []
 
@@ -193,27 +181,27 @@ parseInstruction = do
   tok <- peek
   current <- gets currentToken
   case tok of
-    T.BEGIN -> parseCompound
-    T.CALL -> parseCall
-    T.READ -> parseRead
-    T.WRITE -> parseWrite
-    T.IF -> parseIf
-    T.WHILE -> parseWhile
-    T.Identifier _ -> parseAssignment
+    BEGIN -> parseCompound
+    CALL -> parseCall
+    READ -> parseRead
+    WRITE -> parseWrite
+    IF -> parseIf
+    WHILE -> parseWhile
+    Identifier _ -> parseAssignment
     _ ->
       throwError $
         ParseError
-          { errorPos = T.tokenOffset current,
-            expected = [T.BEGIN, T.CALL, T.READ, T.WRITE, T.IF, T.WHILE, T.Identifier ""],
+          { errorPos = tokenOffset current,
+            expected = [BEGIN, CALL, READ, WRITE, IF, WHILE, Identifier ""],
             got = tok
           }
 
 -- | Parse a compound statement
 parseCompound :: Parser Statement
 parseCompound = do
-  match T.BEGIN
-  stmts <- parseInstruction `sepBy1` (match T.SemiColon)
-  match T.END
+  match BEGIN
+  stmts <- parseInstruction `sepBy1` match SemiColon
+  match END
   return $ Compound stmts
 
 -- Helper function for parsing separated by
@@ -229,32 +217,32 @@ parseType = do
   tok <- peek
   current <- gets currentToken
   baseType <- case tok of
-    T.INT8 -> advance >> return (IntType Int8)
-    T.INT16 -> advance >> return (IntType Int16)
-    T.INT32 -> advance >> return (IntType Int32)
-    T.INT64 -> advance >> return (IntType Int64)
-    T.INT128 -> advance >> return (IntType Int128)
-    T.FLOAT8 -> advance >> return (FloatType Float8)
-    T.FLOAT16 -> advance >> return (FloatType Float16)
-    T.FLOAT32 -> advance >> return (FloatType Float32)
-    T.FLOAT64 -> advance >> return (FloatType Float64)
-    T.FLOAT128 -> advance >> return (FloatType Float128)
+    INT8 -> advance >> return (IntType Int8)
+    INT16 -> advance >> return (IntType Int16)
+    INT32 -> advance >> return (IntType Int32)
+    INT64 -> advance >> return (IntType Int64)
+    INT128 -> advance >> return (IntType Int128)
+    FLOAT8 -> advance >> return (FloatType Float8)
+    FLOAT16 -> advance >> return (FloatType Float16)
+    FLOAT32 -> advance >> return (FloatType Float32)
+    FLOAT64 -> advance >> return (FloatType Float64)
+    FLOAT128 -> advance >> return (FloatType Float128)
     _ ->
       throwError $
         ParseError
-          { errorPos = T.tokenOffset current,
-            expected = [T.INT8, T.INT16, T.INT32, T.INT64, T.INT128, T.FLOAT8, T.FLOAT16, T.FLOAT32, T.FLOAT64, T.FLOAT128],
+          { errorPos = tokenOffset current,
+            expected = [INT8, INT16, INT32, INT64, INT128, FLOAT8, FLOAT16, FLOAT32, FLOAT64, FLOAT128],
             got = tok
           }
 
   -- Check for matrix type
   matrixType <- optional $ do
-    match T.LBracket
+    match LBracket
     -- Parse dimensions (e.g., [3,3])
     size1 <- parseNumber
-    match T.Comma
+    match Comma
     size2 <- parseNumber
-    match T.RBracket
+    match RBracket
     return $
       MatrixType
         { baseType = baseType,
@@ -272,17 +260,18 @@ parseMatrixType = do
   tok <- peek
   current <- gets currentToken
   case tok of
-    T.Sparse -> advance >> return Sparse
-    T.Identity -> advance >> return Identity
-    T.Diagonal -> advance >> return Diagonal
-    T.UpperTriangular -> advance >> return UpperTriangular
-    T.LowerTriangular -> advance >> return LowerTriangular
-    T.Orthogonal -> advance >> return Orthogonal
+    -- TODO: inconsistent / Matrices are defined twice
+    Token.Sparse -> advance >> return Ast.Sparse
+    Token.Identity -> advance >> return Ast.Identity
+    Token.Diagonal -> advance >> return Ast.Diagonal
+    Token.UpperTriangular -> advance >> return Ast.UpperTriangular
+    Token.LowerTriangular -> advance >> return Ast.LowerTriangular
+    Token.Orthogonal -> advance >> return Ast.Orthogonal
     _ ->
       throwError $
         ParseError
-          { errorPos = T.tokenOffset current,
-            expected = [T.Sparse, T.Identity, T.Diagonal, T.UpperTriangular, T.LowerTriangular, T.Orthogonal],
+          { errorPos = tokenOffset current,
+            expected = [Token.Sparse, Token.Identity, Token.Diagonal, Token.UpperTriangular, Token.LowerTriangular, Token.Orthogonal],
             got = tok
           }
 
@@ -292,13 +281,13 @@ parseValue = do
   tok <- peek
   current <- gets currentToken
   case tok of
-    T.INumber n -> advance >> return (IntVal n)
-    T.FNumber n -> advance >> return (FloatVal n)
+    INumber n -> advance >> return (IntVal n)
+    FNumber n -> advance >> return (FloatVal n)
     _ ->
       throwError $
         ParseError
-          { errorPos = T.tokenOffset current,
-            expected = [T.INumber 0, T.FNumber 0.0],
+          { errorPos = tokenOffset current,
+            expected = [INumber 0, FNumber 0.0],
             got = tok
           }
 
@@ -308,76 +297,68 @@ parseNumber = do
   tok <- peek
   current <- gets currentToken
   case tok of
-    T.INumber n -> advance >> return n
+    INumber n -> advance >> return n
     _ ->
       throwError $
         ParseError
-          { errorPos = T.tokenOffset current,
-            expected = [T.INumber 0],
+          { errorPos = tokenOffset current,
+            expected = [INumber 0],
             got = tok
           }
 
 -- | Parse an assignment statement
 parseAssignment :: Parser Statement
-parseAssignment = do
+parseAssignment = do 
   name <- parseIdentifier
-  match T.Equals
-  expr <- parseExpression
-  return $ Assignment name expr
+  match Equals
+  Assignment name <$> parseExpression
 
 -- | Parse a call statement
 parseCall :: Parser Statement
 parseCall = do
-  match T.CALL
-  name <- parseIdentifier
-  return $ Call name
+  match CALL
+  Call <$> parseIdentifier
 
 -- | Parse a read statement
 parseRead :: Parser Statement
 parseRead = do
-  match T.READ
-  name <- parseIdentifier
-  return $ Read name
+  match READ
+  Read <$> parseIdentifier
 
 -- | Parse a write statement
 parseWrite :: Parser Statement
 parseWrite = do
-  match T.WRITE
-  expr <- parseExpression
-  return $ Write expr
+  match WRITE
+  Write <$> parseExpression
 
 -- | Parse an if statement
 parseIf :: Parser Statement
 parseIf = do
-  match T.IF
+  match IF
   cond <- parseCondition
-  match T.THEN
-  stmt <- parseInstruction
-  return $ If cond stmt
+  match THEN
+  If cond <$> parseInstruction
 
 -- | Parse a while statement
 parseWhile :: Parser Statement
 parseWhile = do
-  match T.WHILE
+  match WHILE
   cond <- parseCondition
-  match T.DO
-  stmt <- parseInstruction
-  return $ While cond stmt
+  match DO
+  While cond <$> parseInstruction
 
 -- | Parse a condition
 parseCondition :: Parser Condition
 parseCondition = do
   tok <- peek
   case tok of
-    T.NOT -> do
+    NOT -> do
       advance
-      cond <- parseCondition
-      return $ Not cond
+      Not <$> parseCondition
     _ -> do
       expr1 <- parseExpression
       op <- parseCompOp
-      expr2 <- parseExpression
-      return $ Compare expr1 op expr2
+      Compare expr1 op <$> parseExpression
 
 -- | Parse a comparison operator
 parseCompOp :: Parser CompOp
@@ -385,25 +366,25 @@ parseCompOp = do
   tok <- peek
   current <- gets currentToken
   case tok of
-    T.Equals -> advance >> return Eq
-    T.LessThen -> do
+    Equals -> advance >> return Eq
+    LessThen -> do
       advance
-      hasEq <- optional $ match T.Equals
+      hasEq <- optional $ match Equals
       return $ case hasEq of
         Just _ -> Lte
         Nothing -> Lt
-    T.GreaterThen -> do
+    GreaterThen -> do
       advance
-      hasEq <- optional $ match T.Equals
+      hasEq <- optional $ match Equals
       return $ case hasEq of
         Just _ -> Gte
         Nothing -> Gt
-    T.NotEqual -> advance >> return Neq
+    NotEqual -> advance >> return Neq
     _ ->
       throwError $
         ParseError
-          { errorPos = T.tokenOffset current,
-            expected = [T.Equals, T.LessThen, T.GreaterThen, T.NotEqual],
+          { errorPos = tokenOffset current,
+            expected = [Equals, LessThen, GreaterThen, NotEqual],
             got = tok
           }
 
@@ -437,46 +418,46 @@ parseFactor = do
   tok <- peek
   current <- gets currentToken
   case tok of
-    T.LParent -> do
+    LParent -> do
       advance
       expr <- parseExpression
-      match T.RParent
+      match RParent
       return $ Factor $ Parens expr
-    T.LBracket -> do
+    LBracket -> do
       -- Handle matrix literals
       advance
-      match T.LBracket -- Expect second opening bracket
+      match LBracket -- Expect second opening bracket
       -- Parse first row
       row1 <- parseMatrixRow
-      match T.RBracket -- Close first row
+      match RBracket -- Close first row
       rows <- many $ do
-        match T.Comma
-        match T.LBracket
+        match Comma
+        match LBracket
         row <- parseMatrixRow
-        match T.RBracket
+        match RBracket
         return row
-      match T.RBracket -- Close outer bracket
+      match RBracket -- Close outer bracket
       return $ Factor $ MatrixLit (row1 : rows)
-    T.INumber n -> advance >> return (Factor $ IntLit n)
-    T.FNumber n -> advance >> return (Factor $ FloatLit n)
-    T.Identifier name -> do
+    INumber n -> advance >> return (Factor $ IntLit n)
+    FNumber n -> advance >> return (Factor $ FloatLit n)
+    Identifier name -> do
       advance
       -- Look ahead for possible matrix indexing
       tok' <- peek
       case tok' of
-        T.LBracket -> do
+        LBracket -> do
           advance
           idx1 <- parseExpression
-          match T.Comma
+          match Comma
           idx2 <- parseExpression
-          match T.RBracket
+          match RBracket
           return $ Factor $ MatrixIndex name (idx1, idx2)
         _ -> return $ Factor $ Var name
     _ ->
       throwError $
         ParseError
-          { errorPos = T.tokenOffset current,
-            expected = [T.LParent, T.LBracket, T.INumber 0, T.FNumber 0.0, T.Identifier ""],
+          { errorPos = tokenOffset current,
+            expected = [LParent, LBracket, INumber 0, FNumber 0.0, Identifier ""],
             got = tok
           }
 
@@ -485,7 +466,7 @@ parseMatrixRow :: Parser [Expression]
 parseMatrixRow = do
   expr <- parseExpression
   rest <- many $ do
-    match T.Comma
+    match Comma
     parseExpression
   return (expr : rest)
 
@@ -495,13 +476,13 @@ parseAddOp = do
   tok <- peek
   current <- gets currentToken
   case tok of
-    T.Plus -> advance >> return Add
-    T.Minus -> advance >> return Sub
+    Plus -> advance >> return Add
+    Minus -> advance >> return Sub
     _ ->
       throwError $
         ParseError
-          { errorPos = T.tokenOffset current,
-            expected = [T.Plus, T.Minus],
+          { errorPos = tokenOffset current,
+            expected = [Plus, Minus],
             got = tok
           }
 
@@ -511,13 +492,13 @@ parseMulOp = do
   tok <- peek
   current <- gets currentToken
   case tok of
-    T.Times -> advance >> return Mul
-    T.Divide -> advance >> return Div
+    Times -> advance >> return Mul
+    Divide -> advance >> return Div
     _ ->
       throwError $
         ParseError
-          { errorPos = T.tokenOffset current,
-            expected = [T.Times, T.Divide],
+          { errorPos = tokenOffset current,
+            expected = [Times, Divide],
             got = tok
           }
 
@@ -527,14 +508,15 @@ parseMatrixOp = do
   tok <- peek
   current <- gets currentToken
   case tok of
-    T.MatrixMult -> advance >> return MatrixMul
-    T.ElementMult -> advance >> return ElementMul
-    T.ElementDiv -> advance >> return ElementDiv
+    -- TODO: inconsistent / defined twice elementmult, elementdiv
+    MatrixMult -> advance >> return MatrixMul
+    Token.ElementMult -> advance >> return Ast.ElementMul
+    Token.ElementDiv -> advance >> return Ast.ElementDiv
     _ ->
       throwError $
         ParseError
-          { errorPos = T.tokenOffset current,
-            expected = [T.MatrixMult, T.ElementMult, T.ElementDiv],
+          { errorPos = tokenOffset current,
+            expected = [MatrixMult, Token.ElementMult, Token.ElementDiv],
             got = tok
           }
 
@@ -551,12 +533,12 @@ char c = do
   tok <- peek
   current <- gets currentToken
   case tok of
-    T.Plus | c == '+' -> advance >> return c
-    T.Minus | c == '-' -> advance >> return c
+    Plus | c == '+' -> advance >> return c
+    Minus | c == '-' -> advance >> return c
     _ ->
       throwError $
         ParseError
-          { errorPos = T.tokenOffset current,
-            expected = [T.Plus | c == '+'] ++ [T.Minus | c == '-'],
+          { errorPos = tokenOffset current,
+            expected = [Plus | c == '+'] ++ [Minus | c == '-'],
             got = tok
           }
