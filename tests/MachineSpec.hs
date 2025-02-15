@@ -15,6 +15,8 @@ spec = do
   describe "testGenExpression" testGenExpression
   describe "testConditions" testConditions
   describe "testGenStatement" testGenStatement
+  describe "testGenExpressionFromScript" testGenExpressionFromScript
+  describe "genExampleProgramFromScript" genExampleProgramFromScript
 
 testProgramm :: Spec
 testProgramm = do
@@ -34,23 +36,21 @@ testGenVaribles = do
   describe "Test single Variable declaration" $ do
     it "generates correct instructions for x float128" $ do
       let programm = ("x", Ast.FloatType Ast.Float128)
-      let (instructions, finalState) = runCompilerWithState (genVariable programm)
-
-      instructions `shouldBe` [INC 1]
+      let (_, finalState) = runCompilerWithState (genVariable programm)
 
       depthCounter finalState `shouldBe` 0
       nameCounter finalState `shouldBe` 1
-      codeCounter finalState `shouldBe` 1
+      codeCounter finalState `shouldBe` 0
   describe "Test Variables declaration" $ do
     it "generates correct instructions for a list of variables" $ do
       let programm = [("x", Ast.IntType Ast.Int8), ("y", Ast.FloatType Ast.Float128), ("z", Ast.IntType Ast.Int64), ("A", Ast.MatrixType (Ast.IntType Ast.Int8) (64, 64) Nothing), ("B", Ast.FloatType Ast.Float128)]
       let (instructions, finalState) = runCompilerWithState (genVariables programm)
 
-      instructions `shouldBe` [INC 1, INC 1, INC 1, INC 1, INC 1]
+      instructions `shouldBe` [INC 5]
 
       depthCounter finalState `shouldBe` 0
       nameCounter finalState `shouldBe` 5
-      codeCounter finalState `shouldBe` 5
+      codeCounter finalState `shouldBe` 1
 
 testGenConstants :: Spec
 testGenConstants = do
@@ -59,21 +59,21 @@ testGenConstants = do
       let programm = ("x", Ast.FloatType Ast.Float128, Ast.FloatVal 99.012)
       let (instructions, finalState) = runCompilerWithState (genConstant programm)
 
-      instructions `shouldBe` [INC 1, LITF 99.012, STO 0 0]
+      instructions `shouldBe` [LITF 99.012, STO 0 0]
 
       depthCounter finalState `shouldBe` 0
       nameCounter finalState `shouldBe` 1
-      codeCounter finalState `shouldBe` 3
+      codeCounter finalState `shouldBe` 2
   describe "Test constants declaration" $ do
     it "generates correct instructions for list of constants" $ do
       let programm = [("x", Ast.IntType Ast.Int8, Ast.IntVal 200), ("y", Ast.FloatType Ast.Float128, Ast.FloatVal 99.012), ("z", Ast.IntType Ast.Int64, Ast.IntVal 999912)]
       let (instructions, finalState) = runCompilerWithState (genConstants programm)
 
-      instructions `shouldBe` [INC 1, LITI 200, STO 0 0, INC 1, LITF 99.012, STO 0 1, INC 1, LITI 999912, STO 0 2]
+      instructions `shouldBe` [INC 3, LITI 200, STO 0 0, LITF 99.012, STO 0 1, LITI 999912, STO 0 2]
 
       depthCounter finalState `shouldBe` 0
       nameCounter finalState `shouldBe` 3
-      codeCounter finalState `shouldBe` 9
+      codeCounter finalState `shouldBe` 7
 
 testGenExpression :: Spec
 testGenExpression = do
@@ -589,7 +589,197 @@ testGenStatement = do
                      STO 0 0, -- Store in i
                      JMP 0 -- Jump back to condition
                    ]
-
       depthCounter finalState `shouldBe` 0
       nameCounter finalState `shouldBe` 1
       codeCounter finalState `shouldBe` 9
+
+testGenExpressionFromScript :: Spec
+testGenExpressionFromScript = do
+  describe "Test Complex Expression generation" $ do
+    it "generates correct instructions for ((3 + 5) + 2) * (12 + (9 * 2))" $ do
+      -- Construct the AST for ((3 + 5) + 2) * (12 + (9 * 2))
+      let leftInnerSum =
+            Ast.Binary
+              Ast.Add
+              (Ast.Factor (Ast.IntLit 3))
+              (Ast.Factor (Ast.IntLit 5))
+
+      let leftSide =
+            Ast.Binary
+              Ast.Add
+              leftInnerSum
+              (Ast.Factor (Ast.IntLit 2))
+
+      let rightInnerProduct =
+            Ast.Binary
+              Ast.Mul
+              (Ast.Factor (Ast.IntLit 9))
+              (Ast.Factor (Ast.IntLit 2))
+
+      let rightSide =
+            Ast.Binary
+              Ast.Add
+              (Ast.Factor (Ast.IntLit 12))
+              rightInnerProduct
+
+      let expr = Ast.Binary Ast.Mul leftSide rightSide
+
+      let (instructions, finalState) = runState (genExpr expr) initialState
+
+      instructions
+        `shouldBe` [ LITI 3, -- Push 3
+                     LITI 5, -- Push 5
+                     OPR Add, -- Add -> 8
+                     LITI 2, -- Push 2
+                     OPR Add, -- Add -> 10
+                     LITI 12, -- Push 12
+                     LITI 9, -- Push 9
+                     LITI 2, -- Push 2
+                     OPR Mul, -- Multiply -> 18
+                     OPR Add, -- Add -> 30
+                     OPR Mul -- Final multiplication -> 300
+                   ]
+
+      depthCounter finalState `shouldBe` 0
+      nameCounter finalState `shouldBe` 0
+      codeCounter finalState `shouldBe` 11
+
+exampleProgramAst :: Ast.Program
+exampleProgramAst =
+  Ast.Program
+    "Example"
+    ( Ast.Block
+        { Ast.constDecls = [],
+          Ast.varDecls =
+            [ ("a", Ast.IntType Ast.Int32),
+              ("b", Ast.IntType Ast.Int32),
+              ("pot", Ast.IntType Ast.Int32),
+              ("n", Ast.IntType Ast.Int32),
+              ("fak", Ast.IntType Ast.Int32)
+            ],
+          Ast.procedures =
+            [ Ast.Procedure
+                "potenz"
+                ( Ast.Block
+                    { Ast.constDecls = [],
+                      Ast.varDecls = [("y", Ast.IntType Ast.Int32)],
+                      Ast.procedures = [],
+                      Ast.instruction =
+                        Ast.Compound
+                          [ Ast.Assignment "pot" (Ast.Factor (Ast.IntLit 1)),
+                            Ast.Assignment "y" (Ast.Factor (Ast.Var "b")),
+                            Ast.While
+                              (Ast.Not (Ast.Compare (Ast.Factor (Ast.Var "y")) Ast.Lt (Ast.Factor (Ast.IntLit 1))))
+                              ( Ast.Compound
+                                  [ Ast.Assignment "pot" (Ast.Binary Ast.Mul (Ast.Factor (Ast.Var "pot")) (Ast.Factor (Ast.Var "a"))),
+                                    Ast.Assignment "y" (Ast.Binary Ast.Sub (Ast.Factor (Ast.Var "y")) (Ast.Factor (Ast.IntLit 1)))
+                                  ]
+                              )
+                          ]
+                    }
+                ),
+              Ast.Procedure
+                "fakultaet"
+                ( Ast.Block
+                    { Ast.constDecls = [],
+                      Ast.varDecls = [],
+                      Ast.procedures = [],
+                      Ast.instruction =
+                        Ast.If
+                          (Ast.Compare (Ast.Factor (Ast.Var "n")) Ast.Gt (Ast.Factor (Ast.IntLit 1)))
+                          ( Ast.Compound
+                              [ Ast.Assignment "fak" (Ast.Binary Ast.Mul (Ast.Factor (Ast.Var "fak")) (Ast.Factor (Ast.Var "n"))),
+                                Ast.Assignment "n" (Ast.Binary Ast.Sub (Ast.Factor (Ast.Var "n")) (Ast.Factor (Ast.IntLit 1))),
+                                Ast.Call "fakultaet"
+                              ]
+                          )
+                    }
+                )
+            ],
+          Ast.instruction =
+            Ast.Compound
+              [ Ast.Read "a",
+                Ast.Read "b",
+                Ast.Call "potenz",
+                Ast.Write (Ast.Factor (Ast.Var "pot")),
+                Ast.Read "n",
+                Ast.Assignment "fak" (Ast.Factor (Ast.IntLit 1)),
+                Ast.Call "fakultaet",
+                Ast.Write (Ast.Factor (Ast.Var "fak"))
+              ]
+        }
+    )
+
+genExampleProgramFromScript :: Spec
+genExampleProgramFromScript = do
+  describe "Test Programm to calculate power of 2 numbers" $ do
+    it "check if the right instruction where generated" $ do
+      let (instructions, _) = runState (genProgramm exampleProgramAst) initialState
+
+      instructions
+        `shouldBe` [ -- Program initialization
+                     RST, -- 0: Reset machine state
+                     INC 5, -- 1: Reserve space for global variables (a,b,pot,n,fak)
+                     JMP 37, -- 2: Jump to main program
+
+                     -- PROCEDURE potenz (calculating a^b)
+                     INC 1, -- 3: Reserve space for local variable y
+                     LITI 1, -- 4: Load constant 1
+                     STO 1 5, -- 5: pot := 1
+                     LOD 1 4, -- 6: Load value of b
+                     STO 0 3, -- 7: y := b
+
+                     -- While condition (NOT y < 1)
+                     LOD 0 3, -- 8: Load y
+                     LITI 1, -- 9: Load constant 1
+                     OPR Lt, -- 10: Compare less than
+                     OPR Not, -- 11: Logical NOT
+                     JOF 22, -- 12: Jump to loop body if true
+
+                     -- While loop body for potenz
+                     LOD 1 5, -- 13: Load pot
+                     LOD 1 3, -- 14: Load a
+                     OPR Mul, -- 15: Multiply
+                     STO 1 5, -- 16: pot := pot * a
+                     LOD 0 3, -- 17: Load y
+                     LITI 1, -- 18: Load constant 1
+                     OPR Sub, -- 19: Subtract
+                     STO 0 3, -- 20: y := y - 1
+                     JMP 8, -- 21: Jump to while condition
+                     RET, -- 22
+
+                     -- PROCEDURE fakultaet (calculating n!)
+                     LOD 1 6, -- 23: Load n
+                     LITI 1, -- 24: Load constant 1
+                     OPR Gt, -- 25: Compare greater than
+                     JOF 36, -- 26: Skip if condition false (n <= 1)
+
+                     -- Factorial calculation body
+                     LOD 1 7, -- 27: Load fak
+                     LOD 1 6, -- 28: Load n
+                     OPR Mul, -- 29: Multiply
+                     STO 1 7, -- 30: fak := fak * n
+                     LOD 1 6, -- 31: Load n
+                     LITI 1, -- 32: Load constant 1
+                     OPR Sub, -- 33: Subtract
+                     STO 1 6, -- 34: n := n - 1
+                     CAL 1 23, -- 35: Recursive call to fakultaet
+                     RET, -- 36: Return from procedure
+
+                     -- Main program
+                     REA, -- 37: Read input
+                     STO 0 3, -- 38: READ a
+                     REA, -- 39: Read input
+                     STO 0 4, -- 40: READ b
+                     CAL 0 3, -- 41: CALL potenz
+                     LOD 0 5, -- 42: Load pot
+                     WRI, -- 43: WRITE pot
+                     REA, -- 44: Read input
+                     STO 0 6, -- 45: READ n
+                     LITI 1, -- 46: Load constant 1
+                     STO 0 7, -- 47: fak := 1
+                     CAL 0 23, -- 48: CALL fakultaet
+                     LOD 0 7, -- 49: Load fak
+                     WRI, -- 50: WRITE fak
+                     HLT -- 51: Halt program
+                   ]

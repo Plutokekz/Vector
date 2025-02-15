@@ -55,40 +55,42 @@ genProgramm :: Program -> Compiler [Instruction]
 genProgramm (Program name block) = do
   modify $ \s -> s {codeCounter = codeCounter s + 1} -- Add 1 to code because of rst instruction
   code <- genBlock block
+  modify $ \s -> s {codeCounter = codeCounter s + 1}
   return $ [RST] ++ code ++ [HLT]
 
 genBlock :: Block -> Compiler [Instruction]
 genBlock (Block const variables procedures body) = do
-  currentDepth <- gets depthCounter
-  modify $ \s -> s {depthCounter = currentDepth + 1}
+  modify $ \s -> s {depthCounter = depthCounter s + 1, nameCounter = 3}
   constCode <- genConstants const
   variableCode <- genVariables variables
-  proceduresCode <- genProcedures procedures
-  statementCode <- genStatement body
+  instructions <-
+    if not (null procedures)
+      then do
+        modify $ \s -> s {codeCounter = codeCounter s + 1}
+        proceduresCode <- genProcedures procedures
+        d <- gets codeCounter
+        statementCode <- genStatement body
+        return $ constCode ++ variableCode ++ [JMP d] ++ proceduresCode ++ statementCode
+      else do
+        statementCode <- genStatement body
+        return $ constCode ++ variableCode ++ statementCode
 
-  -- Remove symbols for this block and decrement depth counter
-  -- popScope
-  modify $ \s -> s {depthCounter = currentDepth}
-
-  -- Only include JMP if there are procedures
-  if null procedures
-    then return $ constCode ++ variableCode ++ statementCode
-    else return $ constCode ++ variableCode ++ [JMP 0] ++ proceduresCode ++ statementCode
+  popScope
+  modify $ \s -> s {depthCounter = depthCounter s - 1}
+  return instructions
 
 genProcedures :: [Procedure] -> Compiler [Instruction]
 genProcedures [] = return []
 genProcedures procs = do
-  debugState "genProcedures"
   concat <$> mapM genProcedure procs
 
 genProcedure :: Procedure -> Compiler [Instruction]
 genProcedure (Procedure name block) = do
-  currentAddr <- gets codeCounter
-  currentDepth <- gets depthCounter
-  modify $ \s -> s {nameCounter = nameCounter s + 1}
-  debugState "before block"
+  d <- gets depthCounter
+  c <- gets codeCounter
+  pushSymbol (ProcedureEntry d c) name
   blockCode <- genBlock block
-  debugState "after block"
+  modify $ \s -> s {codeCounter = codeCounter s + 1}
   return $ blockCode ++ [RET]
 
 genStatement :: Statement -> Compiler [Instruction]
@@ -218,31 +220,36 @@ genCompare' Ast.Neq = do
   return [OPR AbstractOpCode.Not]
 
 genConstants :: [(String, Type, Value)] -> Compiler [Instruction]
+genConstants [] = return []
 genConstants consts = do
-  concat <$> mapM genConstant consts
+  cons <- concat <$> mapM genConstant consts
+  modify $ \s -> s {codeCounter = codeCounter s + 1}
+  return $ INC (toInteger $ length consts) : cons
 
 genConstant :: (String, Type, Value) -> Compiler [Instruction]
 genConstant (name, constType, value) = do
   d <- gets depthCounter
   n <- gets nameCounter
   pushSymbol (VariableEntry d n constType) name
-  modify $ \s -> s {nameCounter = nameCounter s + 1, codeCounter = codeCounter s + 3}
+  modify $ \s -> s {nameCounter = nameCounter s + 1, codeCounter = codeCounter s + 2}
   o <- offset name
   case value of
-    IntVal val -> return [INC 1, LITI val, STO 0 o]
-    FloatVal val -> return [INC 1, LITF val, STO 0 o]
+    IntVal val -> return [LITI val, STO 0 o]
+    FloatVal val -> return [LITF val, STO 0 o]
 
 genVariables :: [(String, Type)] -> Compiler [Instruction]
+genVariables [] = return []
 genVariables variables = do
-  concat <$> mapM genVariable variables
+  mapM_ genVariable variables
+  modify $ \s -> s {codeCounter = codeCounter s + 1}
+  return [INC $ toInteger $ length variables]
 
-genVariable :: (String, Type) -> Compiler [Instruction]
+genVariable :: (String, Type) -> Compiler ()
 genVariable (name, variableType) = do
   d <- gets depthCounter
   n <- gets nameCounter
   pushSymbol (VariableEntry d n variableType) name
-  modify $ \s -> s {nameCounter = nameCounter s + 1, codeCounter = codeCounter s + 1}
-  return [INC 1]
+  modify $ \s -> s {nameCounter = nameCounter s + 1}
 
 initialState :: CompilerState
 initialState =
