@@ -14,6 +14,7 @@ spec = do
   describe "testGenConstants" testGenConstants
   describe "testGenExpression" testGenExpression
   describe "testConditions" testConditions
+  describe "testGenStatement" testGenStatement
 
 testProgramm :: Spec
 testProgramm = do
@@ -388,3 +389,207 @@ testConditions = do
       instructions `shouldBe` [LOD 1 3, LITI 10, OPR Lte]
       codeCounter finalState `shouldBe` 3
       depthCounter finalState `shouldBe` 2
+
+testGenStatement :: Spec
+testGenStatement = do
+  describe "Test Statement generation" $ do
+    it "generates correct instructions for Assignment" $ do
+      let stmt = Ast.Assignment "x" (Ast.Factor (Ast.IntLit 42))
+      let initialStateWithX =
+            CompilerState
+              { depthCounter = 0,
+                nameCounter = 1,
+                codeCounter = 0,
+                symbolTable =
+                  Map.fromList
+                    [ ( "x",
+                        VariableEntry
+                          { depth = 0,
+                            nameCount = 0,
+                            variabbleType = Ast.IntType Ast.Int64
+                          }
+                      )
+                    ]
+              }
+
+      let (instructions, finalState) = runState (genStatement stmt) initialStateWithX
+
+      instructions `shouldBe` [LITI 42, STO 0 0]
+
+      depthCounter finalState `shouldBe` 0
+      nameCounter finalState `shouldBe` 1
+      codeCounter finalState `shouldBe` 2
+
+    it "generates correct instructions for Call" $ do
+      let stmt = Ast.Call "proc1"
+      let initialStateWithProc =
+            CompilerState
+              { depthCounter = 0,
+                nameCounter = 1,
+                codeCounter = 0,
+                symbolTable =
+                  Map.fromList
+                    [ ( "proc1",
+                        ProcedureEntry
+                          { depth = 0,
+                            codeAddress = 10
+                          }
+                      )
+                    ]
+              }
+
+      let (instructions, finalState) = runState (genStatement stmt) initialStateWithProc
+
+      instructions `shouldBe` [CAL 0 10]
+
+      depthCounter finalState `shouldBe` 0
+      nameCounter finalState `shouldBe` 1
+      codeCounter finalState `shouldBe` 1
+
+    it "generates correct instructions for Read" $ do
+      let stmt = Ast.Read "x"
+      let initialStateWithX =
+            CompilerState
+              { depthCounter = 0,
+                nameCounter = 1,
+                codeCounter = 0,
+                symbolTable =
+                  Map.fromList
+                    [ ( "x",
+                        VariableEntry
+                          { depth = 0,
+                            nameCount = 0,
+                            variabbleType = Ast.IntType Ast.Int64
+                          }
+                      )
+                    ]
+              }
+
+      let (instructions, finalState) = runState (genStatement stmt) initialStateWithX
+
+      instructions `shouldBe` [REA, STO 0 0]
+
+      depthCounter finalState `shouldBe` 0
+      nameCounter finalState `shouldBe` 1
+      codeCounter finalState `shouldBe` 2
+
+    it "generates correct instructions for Write" $ do
+      let stmt = Ast.Write (Ast.Factor (Ast.IntLit 42))
+      let (instructions, finalState) = runState (genStatement stmt) initialState
+
+      instructions `shouldBe` [LITI 42, WRI]
+
+      depthCounter finalState `shouldBe` 0
+      nameCounter finalState `shouldBe` 0
+      codeCounter finalState `shouldBe` 2
+
+    it "generates correct instructions for Compound statements" $ do
+      let stmt =
+            Ast.Compound
+              [ Ast.Assignment "x" (Ast.Factor (Ast.IntLit 1)),
+                Ast.Assignment "y" (Ast.Factor (Ast.IntLit 2))
+              ]
+      let initialStateWithXAndY =
+            CompilerState
+              { depthCounter = 0,
+                nameCounter = 2,
+                codeCounter = 0,
+                symbolTable =
+                  Map.fromList
+                    [ ( "x",
+                        VariableEntry
+                          { depth = 0,
+                            nameCount = 0,
+                            variabbleType = Ast.IntType Ast.Int64
+                          }
+                      ),
+                      ( "y",
+                        VariableEntry
+                          { depth = 0,
+                            nameCount = 1,
+                            variabbleType = Ast.IntType Ast.Int64
+                          }
+                      )
+                    ]
+              }
+
+      let (instructions, finalState) = runState (genStatement stmt) initialStateWithXAndY
+
+      instructions `shouldBe` [LITI 1, STO 0 0, LITI 2, STO 0 1]
+
+      depthCounter finalState `shouldBe` 0
+      nameCounter finalState `shouldBe` 2
+      codeCounter finalState `shouldBe` 4
+
+    it "generates correct instructions for If statement" $ do
+      let condition = Ast.Compare (Ast.Factor (Ast.Var "x")) Ast.Eq (Ast.Factor (Ast.IntLit 0))
+      let stmt = Ast.If condition (Ast.Assignment "y" (Ast.Factor (Ast.IntLit 1)))
+      let initialStateWithXAndY =
+            CompilerState
+              { depthCounter = 0,
+                nameCounter = 2,
+                codeCounter = 0,
+                symbolTable =
+                  Map.fromList
+                    [ ( "x",
+                        VariableEntry
+                          { depth = 0,
+                            nameCount = 0,
+                            variabbleType = Ast.IntType Ast.Int64
+                          }
+                      ),
+                      ( "y",
+                        VariableEntry
+                          { depth = 0,
+                            nameCount = 1,
+                            variabbleType = Ast.IntType Ast.Int64
+                          }
+                      )
+                    ]
+              }
+
+      let (instructions, finalState) = runState (genStatement stmt) initialStateWithXAndY
+
+      instructions `shouldBe` [LOD 0 0, LITI 0, OPR Eq, JOF 6, LITI 1, STO 0 1]
+
+      depthCounter finalState `shouldBe` 0
+      nameCounter finalState `shouldBe` 2
+      codeCounter finalState `shouldBe` 6
+
+    it "generates correct instructions for While statement" $ do
+      let condition = Ast.Compare (Ast.Factor (Ast.Var "i")) Ast.Lt (Ast.Factor (Ast.IntLit 10))
+      let stmt = Ast.While condition (Ast.Assignment "i" (Ast.Binary Ast.Add (Ast.Factor (Ast.Var "i")) (Ast.Factor (Ast.IntLit 1))))
+      let initialStateWithI =
+            CompilerState
+              { depthCounter = 0,
+                nameCounter = 1,
+                codeCounter = 0,
+                symbolTable =
+                  Map.fromList
+                    [ ( "i",
+                        VariableEntry
+                          { depth = 0,
+                            nameCount = 0,
+                            variabbleType = Ast.IntType Ast.Int64
+                          }
+                      )
+                    ]
+              }
+
+      let (instructions, finalState) = runState (genStatement stmt) initialStateWithI
+
+      instructions
+        `shouldBe` [ LOD 0 0, -- Load i
+                     LITI 10, -- Load 10
+                     OPR Lt, -- Compare
+                     JOF 9, -- Jump to end if false
+                     LOD 0 0, -- Load i
+                     LITI 1, -- Load 1
+                     OPR Add, -- Add
+                     STO 0 0, -- Store in i
+                     JMP 0 -- Jump back to condition
+                   ]
+
+      depthCounter finalState `shouldBe` 0
+      nameCounter finalState `shouldBe` 1
+      codeCounter finalState `shouldBe` 9

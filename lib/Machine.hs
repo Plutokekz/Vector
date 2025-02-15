@@ -75,44 +75,66 @@ genBlock (Block const variables procedures body) = do
     then return $ constCode ++ variableCode ++ statementCode
     else return $ constCode ++ variableCode ++ [JMP 0] ++ proceduresCode ++ statementCode
 
+genProcedures :: [Procedure] -> Compiler [Instruction]
+genProcedures [] = return []
+genProcedures procs = do
+  debugState "genProcedures"
+  concat <$> mapM genProcedure procs
+
+genProcedure :: Procedure -> Compiler [Instruction]
+genProcedure (Procedure name block) = do
+  currentAddr <- gets codeCounter
+  currentDepth <- gets depthCounter
+  modify $ \s -> s {nameCounter = nameCounter s + 1}
+  debugState "before block"
+  blockCode <- genBlock block
+  debugState "after block"
+  return $ blockCode ++ [RET]
+
 genStatement :: Statement -> Compiler [Instruction]
 genStatement (Assignment name expression) = do
-  -- (stufe, offset) <- lookupName name
+  s <- step name
+  i <- offset name
   exprCode <- genExpr expression
-  return $ exprCode ++ [STO 0 0]
+  modify $ \s -> s {codeCounter = codeCounter s + 1}
+  return $ exprCode ++ [STO s i]
 genStatement (Call name) = do
-  -- (stufe, addr) <- lookupName name
-  return [CAL 0 0]
+  s <- step name
+  a <- codeaddress name
+  modify $ \s -> s {codeCounter = codeCounter s + 1}
+  return [CAL s a]
 genStatement (Read name) = do
-  -- (stufe, offset) <- lookupName name
-  return [REA, STO 0 0]
+  s <- step name
+  i <- offset name
+  modify $ \s -> s {codeCounter = codeCounter s + 2}
+  return [REA, STO s i]
 genStatement (Write expression) = do
   exprCode <- genExpr expression
+  modify $ \s -> s {codeCounter = codeCounter s + 1}
   return $ exprCode ++ [WRI]
 genStatement (Compound statements) = do
-  codes <- mapM genStatement statements
-  return $ concat codes
+  concat <$> mapM genStatement statements
 genStatement (If condition statement) = do
-  labelNum <- gets codeCounter
-  modify $ \s -> s {codeCounter = codeCounter s + 1}
   condCode <- genCondition condition
+  -- update code counter for jump so the offest is right
+  modify $ \s -> s {codeCounter = codeCounter s + 1}
   stmtCode <- genStatement statement
-  return $
-    condCode
-      ++ [JOF labelNum]
-      ++ stmtCode
-      ++ [JMP labelNum]
+  pos <- gets codeCounter
+  return $ condCode ++ [JOF pos] ++ stmtCode
 genStatement (While condition statement) = do
-  labelNum <- gets codeCounter
-  modify $ \s -> s {codeCounter = codeCounter s + 1}
+  -- First save the position where the condition code will start
+  -- We need this for the backward jump at the end
+  conditionStart <- gets codeCounter
   condCode <- genCondition condition
+  -- Account for the JOF instruction in the code counter
+  modify $ \s -> s {codeCounter = codeCounter s + 1}
   stmtCode <- genStatement statement
-  return $
-    [JMP labelNum]
-      ++ condCode
-      ++ [JOF labelNum]
-      ++ stmtCode
-      ++ [JMP labelNum]
+  -- Account for the JMP instruction that will loop back
+  modify $ \s -> s {codeCounter = codeCounter s + 1}
+  -- Get final position for the forward jump
+  endPos <- gets codeCounter
+  -- Return the complete instruction sequence
+  return $ condCode ++ [JOF endPos] ++ stmtCode ++ [JMP conditionStart]
 
 genExpr :: Expression -> Compiler [Instruction]
 genExpr (Binary op expr1 expr2) = do
@@ -194,22 +216,6 @@ genCompare' Ast.Gte = do
   return [OPR AbstractOpCode.Gte]
 genCompare' Ast.Neq = do
   return [OPR AbstractOpCode.Not]
-
-genProcedures :: [Procedure] -> Compiler [Instruction]
-genProcedures [] = return []
-genProcedures procs = do
-  debugState "genProcedures"
-  concat <$> mapM genProcedure procs
-
-genProcedure :: Procedure -> Compiler [Instruction]
-genProcedure (Procedure name block) = do
-  currentAddr <- gets codeCounter
-  currentDepth <- gets depthCounter
-  modify $ \s -> s {nameCounter = nameCounter s + 1}
-  debugState "before block"
-  blockCode <- genBlock block
-  debugState "after block"
-  return $ blockCode ++ [RET]
 
 genConstants :: [(String, Type, Value)] -> Compiler [Instruction]
 genConstants consts = do
