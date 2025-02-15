@@ -65,11 +65,11 @@ data Type
         dimensions :: (Integer, Integer),
         matrixSpec :: Maybe MatrixSpecifier
       }
-  deriving (Show)
+  deriving (Show, Eq)
 
-data IntSize = Int8 | Int16 | Int32 | Int64 | Int128 deriving (Show)
+data IntSize = Int8 | Int16 | Int32 | Int64 | Int128 deriving (Show, Eq)
 
-data FloatSize = Float8 | Float16 | Float32 | Float64 | Float128 deriving (Show)
+data FloatSize = Float8 | Float16 | Float32 | Float64 | Float128 deriving (Show, Eq)
 
 data MatrixSpecifier
   = Sparse
@@ -78,6 +78,6 @@ data MatrixSpecifier
   | UpperTriangular
   | LowerTriangular
   | Orthogonal
-  deriving (Show)
+  deriving (Show, Eq)
 
 data Value = IntVal Integer | FloatVal Double deriving (Show)

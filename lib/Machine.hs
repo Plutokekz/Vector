@@ -1,8 +1,11 @@
 module Machine where
 
+import AbstractOpCode
 import Ast
+import Control.Monad.State
 import Control.Monad.State.Lazy
 import Data.List (find)
+import Data.Map qualified as Map
 import Debug.Trace
 
 -- Add this helper function
@@ -11,101 +14,46 @@ debugState label = do
   state <- get
   traceM $ "\n" ++ label ++ ":\n" ++ show state
 
-data Instruction
-  = RST
-  | LOD Integer Integer
-  | STO Integer Integer
-  | INC Integer
-  | LITI Integer -- Load imidieate integer
-  | LITF Double -- load imideate float
-  | JMP Integer
-  | JOT Integer
-  | JOF Integer
-  | CAL Integer Integer
-  | RET
-  | OPR Operator
-  | REA
-  | WRI
-  | HLT
-
-data Operator
-  = Add
-  | Sub
-  | Mul
-  | Div
-  | Eq
-  | Lt
-  | Lte
-  | Gt
-  | Gte
-  | Not
-  | MatrixMul
-  | ElementMul
-  | ElementDiv
-  deriving (Show)
-
-instance Show Instruction where
-  show RST = "RST"
-  show (LOD s i) = "LOD " ++ show s ++ " " ++ show i
-  show (STO s i) = "STO " ++ show s ++ " " ++ show i
-  show (INC n) = "INC " ++ show n
-  show (LITI n) = "LITI " ++ show n
-  show (LITF n) = "LITF " ++ show n
-  show (JMP l) = "JMP " ++ show l
-  show (JOT l) = "JOT " ++ show l
-  show (JOF l) = "JOF " ++ show l
-  show (CAL s a) = "CAL " ++ show s ++ " " ++ show a
-  show RET = "RET"
-  show (OPR op) = "OPR " ++ show op
-  show REA = "REA"
-  show WRI = "WRI"
-  show HLT = "HLT"
-
-deriving instance Eq Instruction
-
-deriving instance Eq Operator
-
-data TableEntry
-  = MVariable {name :: String, depth :: Integer, nameCount :: Integer}
-  | MProcedure {name :: String, depth :: Integer, codeAddress :: Integer}
-  deriving (Show, Eq)
-
-type NameTable = [TableEntry]
-
-data CompilerState = CompilerState
-  { symbolTable :: NameTable,
-    depthCounter :: Integer,
-    nameCounter :: Integer,
-    codeCounter :: Integer
-  }
-  deriving (Show)
-
-type Compiler a = State CompilerState a
-
-pushSymbol :: TableEntry -> Compiler ()
-pushSymbol entry = modify $ \s ->
-  s {symbolTable = entry : symbolTable s}
+pushSymbol :: TableEntry -> Name -> Compiler ()
+pushSymbol entry name = modify $ \s ->
+  s {symbolTable = Map.insert name entry $ symbolTable s}
 
 popScope :: Compiler ()
 popScope = do
   currentDepth <- gets depthCounter
-  modify $ \s -> s {symbolTable = filter (\e -> depth e /= currentDepth) (symbolTable s)}
+  modify $ \s -> s {symbolTable = Map.filter (\e -> depth e /= currentDepth) (symbolTable s)}
 
-lookupName :: String -> Compiler (Integer, Integer)
-lookupName findName = do
+offset :: Name -> Compiler Integer
+offset name = do
+  table <- gets symbolTable
+  case Map.lookup name table of
+    Just entry -> do
+      case entry of
+        VariableEntry _ count _ -> return count
+        ProcedureEntry _ _ -> error $ name ++ " Is a procedure not a Variable"
+    Nothing -> error $ "Name not found: " ++ name
+
+step :: Name -> Compiler Integer
+step name = do
   currentDepth <- gets depthCounter
   table <- gets symbolTable
-  case find (\e -> findName == name e) table of
+  case Map.lookup name table of
+    Just entry -> return $ currentDepth - depth entry
+    Nothing -> error $ "Name not found: " ++ name
+
+codeaddress :: Name -> Compiler Integer
+codeaddress name = do
+  table <- gets symbolTable
+  case Map.lookup name table of
     Just entry -> do
-      let stufe = currentDepth - depth entry
-      let addr = case entry of
-            MVariable _ _ off -> off
-            MProcedure _ _ code -> code
-      return (stufe, addr)
-    Nothing -> error $ "Name not found: " ++ findName
+      case entry of
+        VariableEntry {} -> error $ name ++ " Is a Variable not a Procedure"
+        ProcedureEntry _ addr -> return addr
+    Nothing -> error $ "Name not found: " ++ name
 
 genProgramm :: Program -> Compiler [Instruction]
 genProgramm (Program name block) = do
+  modify $ \s -> s {codeCounter = codeCounter s + 1} -- Add 1 to code because of rst instruction
   code <- genBlock block
   return $ [RST] ++ code ++ [HLT]
 
@@ -114,7 +62,7 @@ genBlock (Block const variables procedures body) = do
   currentDepth <- gets depthCounter
   modify $ \s -> s {depthCounter = currentDepth + 1}
   constCode <- genConstants const
-  variableCode <- genVariable variables
+  variableCode <- genVariables variables
   proceduresCode <- genProcedures procedures
   statementCode <- genStatement body
 
@@ -129,15 +77,15 @@ genBlock (Block const variables procedures body) = do
 
 genStatement :: Statement -> Compiler [Instruction]
 genStatement (Assignment name expression) = do
-  (stufe, offset) <- lookupName name
+  -- (stufe, offset) <- lookupName name
   exprCode <- genExpr expression
-  return $ exprCode ++ [STO stufe offset]
+  return $ exprCode ++ [STO 0 0]
 genStatement (Call name) = do
-  (stufe, addr) <- lookupName name
-  return [CAL stufe addr]
+  -- (stufe, addr) <- lookupName name
+  return [CAL 0 0]
 genStatement (Read name) = do
-  (stufe, offset) <- lookupName name
-  return [REA, STO stufe offset]
+  -- (stufe, offset) <- lookupName name
+  return [REA, STO 0 0]
 genStatement (Write expression) = do
   exprCode <- genExpr expression
   return $ exprCode ++ [WRI]
@@ -170,19 +118,52 @@ genExpr :: Expression -> Compiler [Instruction]
 genExpr (Binary op expr1 expr2) = do
   expr1Code <- genExpr expr1
   expr2Code <- genExpr expr2
-  op <- genBinOp op
-  return $ expr1Code ++ expr2Code ++ op
-genExpr (Unary op expr) = return []
-genExpr (Factor factor) = return []
+  codeOp <- genBinOp op
+  return $ expr1Code ++ expr2Code ++ codeOp
+genExpr (Unary op expr) = genUnary op expr
+genExpr (Factor factor) = genFactor factor
+
+genFactor :: Factor -> Compiler [Instruction]
+genFactor (Var name) = do
+  s <- step name
+  i <- offset name
+  modify $ \s -> s {codeCounter = codeCounter s + 1}
+  return [LOD s i]
+genFactor (IntLit value) = do
+  modify $ \s -> s {codeCounter = codeCounter s + 1}
+  return [LITI value]
+genFactor (FloatLit value) = do
+  modify $ \s -> s {codeCounter = codeCounter s + 1}
+  return [LITF value]
+genFactor (Parens expr) = genExpr expr
+genFactor (MatrixLit exprMatrix) = error "Not Implementen"
+genFactor (MatrixIndex name (x, y)) = error "Not Implementen"
+
+genUnary :: UnOp -> Expression -> Compiler [Instruction]
+genUnary op expr = do
+  case op of
+    Pos -> genExpr expr
+    Neg -> do
+      modify $ \s -> s {codeCounter = codeCounter s + 1}
+      exprCode <- genExpr expr
+      modify $ \s -> s {codeCounter = codeCounter s + 1}
+      -- TODO: Add right instruction for types?
+      -- Expressions need a type
+      return $ [LITI 0] ++ exprCode ++ [OPR AbstractOpCode.Not]
 
 genBinOp :: BinOp -> Compiler [Instruction]
-genBinOp Ast.Add = return [OPR Machine.Add]
-genBinOp Ast.Sub = return [OPR Machine.Sub]
-genBinOp Ast.Mul = return [OPR Machine.Mul]
-genBinOp Ast.Div = return [OPR Machine.Div]
-genBinOp Ast.MatrixMul = return [OPR Machine.MatrixMul]
-genBinOp Ast.ElementMul = return [OPR Machine.ElementMul]
-genBinOp Ast.ElementDiv = return [OPR Machine.ElementDiv]
+genBinOp op = do
+  modify $ \s -> s {codeCounter = codeCounter s + 1}
+  genBinOp' op
+
+genBinOp' :: BinOp -> Compiler [Instruction]
+genBinOp' Ast.Add = return [OPR AbstractOpCode.Add]
+genBinOp' Ast.Sub = return [OPR AbstractOpCode.Sub]
+genBinOp' Ast.Mul = return [OPR AbstractOpCode.Mul]
+genBinOp' Ast.Div = return [OPR AbstractOpCode.Div]
+genBinOp' Ast.MatrixMul = return [OPR AbstractOpCode.MatrixMul]
+genBinOp' Ast.ElementMul = return [OPR AbstractOpCode.ElementMul]
+genBinOp' Ast.ElementDiv = return [OPR AbstractOpCode.ElementDiv]
 
 genCondition :: Condition -> Compiler [Instruction]
 genCondition (Ast.Compare expr1 compOp expr2) = do
@@ -192,21 +173,21 @@ genCondition (Ast.Compare expr1 compOp expr2) = do
   return $ expr1Code ++ expr2Code ++ opr
 genCondition (Ast.Not condition) = do
   conditionCode <- genCondition condition
-  return $ conditionCode ++ [OPR Machine.Not]
+  return $ conditionCode ++ [OPR AbstractOpCode.Not]
 
 genCompare :: CompOp -> Compiler [Instruction]
 genCompare Ast.Eq = do
-  return [OPR Machine.Eq]
+  return [OPR AbstractOpCode.Eq]
 genCompare Ast.Lt = do
-  return [OPR Machine.Lt]
+  return [OPR AbstractOpCode.Lt]
 genCompare Ast.Gt = do
-  return [OPR Machine.Gt]
+  return [OPR AbstractOpCode.Gt]
 genCompare Ast.Lte = do
-  return [OPR Machine.Lte]
+  return [OPR AbstractOpCode.Lte]
 genCompare Ast.Gte = do
-  return [OPR Machine.Gte]
+  return [OPR AbstractOpCode.Gte]
 genCompare Ast.Neq = do
-  return [OPR Machine.Not]
+  return [OPR AbstractOpCode.Not]
 
 genProcedures :: [Procedure] -> Compiler [Instruction]
 genProcedures [] = return []
@@ -218,52 +199,43 @@ genProcedure :: Procedure -> Compiler [Instruction]
 genProcedure (Procedure name block) = do
   currentAddr <- gets codeCounter
   currentDepth <- gets depthCounter
-  modify $ \s -> s {nameCounter = nameCounter s + 1, symbolTable = MProcedure name currentDepth currentAddr : symbolTable s}
+  modify $ \s -> s {nameCounter = nameCounter s + 1}
   debugState "before block"
   blockCode <- genBlock block
   debugState "after block"
   return $ blockCode ++ [RET]
 
 genConstants :: [(String, Type, Value)] -> Compiler [Instruction]
-genConstants [] = return []
 genConstants consts = do
-  let numConsts = length consts
-  let allocSpace = [INC (toInteger numConsts)]
-  initCode <- concat <$> mapM genConst consts
+  concat <$> mapM genConstant consts
 
-  return $ allocSpace ++ initCode
-
-genConst :: (String, Type, Value) -> Compiler [Instruction]
-genConst (name, _, value) = do
-  depth <- gets depthCounter
-  offset <- gets nameCounter
-  modify $ \s -> s {nameCounter = nameCounter s + 1, symbolTable = MVariable name depth offset : symbolTable s}
+genConstant :: (String, Type, Value) -> Compiler [Instruction]
+genConstant (name, constType, value) = do
+  d <- gets depthCounter
+  n <- gets nameCounter
+  pushSymbol (VariableEntry d n constType) name
+  modify $ \s -> s {nameCounter = nameCounter s + 1, codeCounter = codeCounter s + 3}
+  o <- offset name
   case value of
-    IntVal val -> return [LITI val, STO 0 offset]
-    FloatVal val -> return [LITF val, STO 0 offset]
+    IntVal val -> return [INC 1, LITI val, STO 0 o]
+    FloatVal val -> return [INC 1, LITF val, STO 0 o]
 
-genVariable :: [(String, Type)] -> Compiler [Instruction]
-genVariable [] = return []
-genVariable names = do
-  nameCounter <- gets nameCounter
-  currentDepth <- gets depthCounter
-  let (entries, nameCount) = genMVariables [] names currentDepth nameCounter
-  modify $ \s ->
-    s
-      { depthCounter = 1,
-        nameCounter = nameCount,
-        symbolTable = entries ++ symbolTable s
-      }
-  return [INC $ toInteger (length names)]
+genVariables :: [(String, Type)] -> Compiler [Instruction]
+genVariables variables = do
+  concat <$> mapM genVariable variables
 
-genMVariables :: [TableEntry] -> [(String, Type)] -> Integer -> Integer -> ([TableEntry], Integer)
-genMVariables acc [] depth nameCount = (acc, nameCount)
-genMVariables acc ((name, t) : xs) depth nameCount = genMVariables (MVariable name depth (nameCount + 1) : acc) xs depth $ nameCount + 1
+genVariable :: (String, Type) -> Compiler [Instruction]
+genVariable (name, variableType) = do
+  d <- gets depthCounter
+  n <- gets nameCounter
+  pushSymbol (VariableEntry d n variableType) name
+  modify $ \s -> s {nameCounter = nameCounter s + 1, codeCounter = codeCounter s + 1}
+  return [INC 1]
 
 initialState :: CompilerState
 initialState =
   CompilerState
-    { symbolTable = [],
+    { symbolTable = Map.empty,
       depthCounter = 0,
       nameCounter = 0,
       codeCounter = 0
@@ -271,3 +243,6 @@ initialState =
 
 runCompiler :: Compiler a -> a
 runCompiler comp = evalState comp initialState
+
+runCompilerWithState :: Compiler a -> (a, CompilerState)
+runCompilerWithState comp = runState comp initialState
