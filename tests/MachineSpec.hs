@@ -13,6 +13,7 @@ spec = do
   describe "testGenVaribles" testGenVaribles
   describe "testGenConstants" testGenConstants
   describe "testGenExpression" testGenExpression
+  describe "testConditions" testConditions
 
 testProgramm :: Spec
 testProgramm = do
@@ -289,3 +290,101 @@ testGenExpression = do
       let (instructions, finalState) = runState (genExpr expr) initialStateWithMatrix
       instructions `shouldBe` [LOD 0 3, LOD 0 4, OPR MatrixMul]
       codeCounter finalState `shouldBe` 3
+
+testConditions :: Spec
+testConditions = do
+  describe "Test Condition code generation" $ do
+    it "generates correct instructions for equals comparison of integers" $ do
+      let cond =
+            Ast.Compare
+              (Ast.Factor (Ast.IntLit 5))
+              Ast.Eq
+              (Ast.Factor (Ast.IntLit 3))
+      let (instructions, finalState) = runState (genCondition cond) initialState
+      instructions `shouldBe` [LITI 5, LITI 3, OPR Eq]
+      codeCounter finalState `shouldBe` 3
+
+    it "generates correct instructions for less than comparison with variables" $ do
+      let stateWithVars =
+            initialState
+              { symbolTable =
+                  Map.fromList
+                    [ ("x", VariableEntry 0 3 (Ast.IntType Ast.Int8)),
+                      ("y", VariableEntry 0 4 (Ast.IntType Ast.Int8))
+                    ]
+              }
+      let cond =
+            Ast.Compare
+              (Ast.Factor (Ast.Var "x"))
+              Ast.Lt
+              (Ast.Factor (Ast.Var "y"))
+      let (instructions, finalState) = runState (genCondition cond) stateWithVars
+      instructions `shouldBe` [LOD 0 3, LOD 0 4, OPR Lt]
+      codeCounter finalState `shouldBe` 3
+
+    it "generates correct instructions for greater than comparison with float variables" $ do
+      let stateWithFloats =
+            initialState
+              { symbolTable =
+                  Map.fromList
+                    [ ("x", VariableEntry 0 3 (Ast.FloatType Ast.Float8)),
+                      ("y", VariableEntry 0 4 (Ast.FloatType Ast.Float8))
+                    ]
+              }
+      let cond =
+            Ast.Compare
+              (Ast.Factor (Ast.Var "x"))
+              Ast.Gt
+              (Ast.Factor (Ast.Var "y"))
+      let (instructions, finalState) = runState (genCondition cond) stateWithFloats
+      instructions `shouldBe` [LOD 0 3, LOD 0 4, OPR Gt]
+      codeCounter finalState `shouldBe` 3
+
+    it "generates correct instructions for not equals with mixed types" $ do
+      let stateWithMixed =
+            initialState
+              { symbolTable =
+                  Map.fromList
+                    [ ("x", VariableEntry 0 3 (Ast.IntType Ast.Int8)),
+                      ("y", VariableEntry 0 4 (Ast.FloatType Ast.Float128))
+                    ]
+              }
+      let cond =
+            Ast.Compare
+              (Ast.Factor (Ast.Var "x"))
+              Ast.Neq
+              (Ast.Factor (Ast.FloatLit 5.0))
+      let (instructions, finalState) = runState (genCondition cond) stateWithMixed
+      instructions `shouldBe` [LOD 0 3, LITF 5.0, OPR Not]
+      codeCounter finalState `shouldBe` 3
+
+    it "generates correct instructions for negated condition" $ do
+      let cond =
+            Ast.Not
+              ( Ast.Compare
+                  (Ast.Factor (Ast.IntLit 1))
+                  Ast.Lt
+                  (Ast.Factor (Ast.IntLit 2))
+              )
+      let (instructions, finalState) = runState (genCondition cond) initialState
+      instructions `shouldBe` [LITI 1, LITI 2, OPR Lt, OPR Not]
+      codeCounter finalState `shouldBe` 4
+
+    it "generates correct instructions for nested comparison in different block" $ do
+      let stateWithNestedVar =
+            initialState
+              { symbolTable =
+                  Map.fromList
+                    [ ("x", VariableEntry 1 3 (Ast.IntType Ast.Int32)) -- Variable from outer block
+                    ],
+                depthCounter = 2 -- Current block is nested
+              }
+      let cond =
+            Ast.Compare
+              (Ast.Factor (Ast.Var "x"))
+              Ast.Lte
+              (Ast.Factor (Ast.IntLit 10))
+      let (instructions, finalState) = runState (genCondition cond) stateWithNestedVar
+      instructions `shouldBe` [LOD 1 3, LITI 10, OPR Lte]
+      codeCounter finalState `shouldBe` 3
+      depthCounter finalState `shouldBe` 2

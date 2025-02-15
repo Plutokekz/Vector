@@ -173,20 +173,26 @@ genCondition (Ast.Compare expr1 compOp expr2) = do
   return $ expr1Code ++ expr2Code ++ opr
 genCondition (Ast.Not condition) = do
   conditionCode <- genCondition condition
+  modify $ \s -> s {codeCounter = codeCounter s + 1}
   return $ conditionCode ++ [OPR AbstractOpCode.Not]
 
 genCompare :: CompOp -> Compiler [Instruction]
-genCompare Ast.Eq = do
+genCompare op = do
+  modify $ \s -> s {codeCounter = codeCounter s + 1}
+  genCompare' op
+
+genCompare' :: CompOp -> Compiler [Instruction]
+genCompare' Ast.Eq = do
   return [OPR AbstractOpCode.Eq]
-genCompare Ast.Lt = do
+genCompare' Ast.Lt = do
   return [OPR AbstractOpCode.Lt]
-genCompare Ast.Gt = do
+genCompare' Ast.Gt = do
   return [OPR AbstractOpCode.Gt]
-genCompare Ast.Lte = do
+genCompare' Ast.Lte = do
   return [OPR AbstractOpCode.Lte]
-genCompare Ast.Gte = do
+genCompare' Ast.Gte = do
   return [OPR AbstractOpCode.Gte]
-genCompare Ast.Neq = do
+genCompare' Ast.Neq = do
   return [OPR AbstractOpCode.Not]
 
 genProcedures :: [Procedure] -> Compiler [Instruction]
