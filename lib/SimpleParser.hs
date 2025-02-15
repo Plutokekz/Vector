@@ -1,5 +1,4 @@
-module SimpleParser
-where
+module SimpleParser where
 
 import Control.Applicative (Alternative (..), many, optional)
 import Control.Monad.Except

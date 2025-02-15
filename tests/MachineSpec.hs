@@ -215,14 +215,12 @@ testGenExpression = do
       instructions `shouldBe` [LOD 0 3]
       codeCounter finalState `shouldBe` 1
 
-    -- Test für unäre Operationen
     it "generates correct instructions for negation" $ do
       let expr = Ast.Unary Ast.Neg (Ast.Factor (Ast.IntLit 5))
       let (instructions, finalState) = runState (genExpr expr) initialState
       instructions `shouldBe` [LITI 0, LITI 5, OPR Not]
       codeCounter finalState `shouldBe` 3
 
-    -- Test für binäre Operationen
     it "generates correct instructions for addition" $ do
       let expr =
             Ast.Binary
@@ -243,7 +241,6 @@ testGenExpression = do
       instructions `shouldBe` [LITI 4, LITI 5, OPR Mul]
       codeCounter finalState `shouldBe` 3
 
-    -- Test für verschachtelte Ausdrücke
     it "generates correct instructions for complex expression" $ do
       let expr =
             Ast.Binary
@@ -258,7 +255,6 @@ testGenExpression = do
       instructions `shouldBe` [LITI 2, LITI 3, OPR Mul, LITI 4, OPR Add]
       codeCounter finalState `shouldBe` 5
 
-    -- Test für geklammerte Ausdrücke
     it "generates correct instructions for parenthesized expression" $ do
       let expr =
             Ast.Factor
@@ -273,7 +269,6 @@ testGenExpression = do
       instructions `shouldBe` [LITI 1, LITI 2, OPR Add]
       codeCounter finalState `shouldBe` 3
 
-    -- Test für Matrix-Operationen
     it "generates correct instructions for matrix multiplication" $ do
       let expr =
             Ast.Binary

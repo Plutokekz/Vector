@@ -1,4 +1,4 @@
-module Lexer (tokenize) where
+module Lexer where
 
 import Control.Applicative (Alternative (..), optional)
 import Data.Char (isAlpha, isNumber, isSpace)
