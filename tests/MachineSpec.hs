@@ -427,12 +427,13 @@ testGenStatement = do
               { depthCounter = 0,
                 nameCounter = 1,
                 codeCounter = 0,
+                labelCounter = 1,
                 symbolTable =
                   Map.fromList
                     [ ( "proc1",
                         ProcedureEntry
                           { depth = 0,
-                            codeAddress = 10
+                            label = "procedure_proc1_1"
                           }
                       )
                     ]
@@ -440,7 +441,7 @@ testGenStatement = do
 
       let (instructions, finalState) = runState (genStatement stmt) initialStateWithProc
 
-      instructions `shouldBe` [CAL 0 10]
+      instructions `shouldBe` [CAL 0 "procedure_proc1_1"]
 
       depthCounter finalState `shouldBe` 0
       nameCounter finalState `shouldBe` 1
@@ -494,6 +495,7 @@ testGenStatement = do
               { depthCounter = 0,
                 nameCounter = 2,
                 codeCounter = 0,
+                labelCounter = 0,
                 symbolTable =
                   Map.fromList
                     [ ( "x",
@@ -529,6 +531,7 @@ testGenStatement = do
               { depthCounter = 0,
                 nameCounter = 2,
                 codeCounter = 0,
+                labelCounter = 0,
                 symbolTable =
                   Map.fromList
                     [ ( "x",
@@ -550,11 +553,11 @@ testGenStatement = do
 
       let (instructions, finalState) = runState (genStatement stmt) initialStateWithXAndY
 
-      instructions `shouldBe` [LOD 0 0, LITI 0, OPR Eq, JOF 6, LITI 1, STO 0 1]
+      instructions `shouldBe` [LOD 0 0, LITI 0, OPR Eq, JOF ".if_0", LITI 1, STO 0 1, LAB ".if_0"]
 
       depthCounter finalState `shouldBe` 0
       nameCounter finalState `shouldBe` 2
-      codeCounter finalState `shouldBe` 6
+      codeCounter finalState `shouldBe` 7
 
     it "generates correct instructions for While statement" $ do
       let condition = Ast.Compare (Ast.Factor (Ast.Var "i")) Ast.Lt (Ast.Factor (Ast.IntLit 10))
@@ -564,6 +567,7 @@ testGenStatement = do
               { depthCounter = 0,
                 nameCounter = 1,
                 codeCounter = 0,
+                labelCounter = 0,
                 symbolTable =
                   Map.fromList
                     [ ( "i",
@@ -579,19 +583,21 @@ testGenStatement = do
       let (instructions, finalState) = runState (genStatement stmt) initialStateWithI
 
       instructions
-        `shouldBe` [ LOD 0 0, -- Load i
+        `shouldBe` [ LAB ".while_start_0",
+                     LOD 0 0, -- Load i
                      LITI 10, -- Load 10
                      OPR Lt, -- Compare
-                     JOF 9, -- Jump to end if false
+                     JOF ".while_end_1", -- Jump to end if false
                      LOD 0 0, -- Load i
                      LITI 1, -- Load 1
                      OPR Add, -- Add
                      STO 0 0, -- Store in i
-                     JMP 0 -- Jump back to condition
+                     JMP ".while_start_0", -- Jump back to condition
+                     LAB ".while_end_1"
                    ]
       depthCounter finalState `shouldBe` 0
       nameCounter finalState `shouldBe` 1
-      codeCounter finalState `shouldBe` 9
+      codeCounter finalState `shouldBe` 11
 
 testGenExpressionFromScript :: Spec
 testGenExpressionFromScript = do
@@ -720,7 +726,8 @@ genExampleProgramFromScript = do
         `shouldBe` [ -- Program initialization
                      RST, -- 0: Reset machine state
                      INC 5, -- 1: Reserve space for global variables (a,b,pot,n,fak)
-                     JMP 37, -- 2: Jump to main program
+                     JMP ".block_5", -- 2: Jump to main program
+                     LAB ".procedure_potenz_0",
 
                      -- PROCEDURE potenz (calculating a^b)
                      INC 1, -- 3: Reserve space for local variable y
@@ -728,13 +735,14 @@ genExampleProgramFromScript = do
                      STO 1 5, -- 5: pot := 1
                      LOD 1 4, -- 6: Load value of b
                      STO 0 3, -- 7: y := b
+                     LAB ".while_start_1",
 
                      -- While condition (NOT y < 1)
                      LOD 0 3, -- 8: Load y
                      LITI 1, -- 9: Load constant 1
                      OPR Lt, -- 10: Compare less than
                      OPR Not, -- 11: Logical NOT
-                     JOF 22, -- 12: Jump to loop body if true
+                     JOF ".while_end_2", -- 12: Jump to loop body if true
 
                      -- While loop body for potenz
                      LOD 1 5, -- 13: Load pot
@@ -745,14 +753,16 @@ genExampleProgramFromScript = do
                      LITI 1, -- 18: Load constant 1
                      OPR Sub, -- 19: Subtract
                      STO 0 3, -- 20: y := y - 1
-                     JMP 8, -- 21: Jump to while condition
+                     JMP ".while_start_1", -- 21: Jump to while condition
+                     LAB ".while_end_2",
                      RET, -- 22
 
                      -- PROCEDURE fakultaet (calculating n!)
+                     LAB ".procedure_fakultaet_3",
                      LOD 1 6, -- 23: Load n
                      LITI 1, -- 24: Load constant 1
                      OPR Gt, -- 25: Compare greater than
-                     JOF 36, -- 26: Skip if condition false (n <= 1)
+                     JOF ".if_4", -- 26: Skip if condition false (n <= 1)
 
                      -- Factorial calculation body
                      LOD 1 7, -- 27: Load fak
@@ -763,22 +773,24 @@ genExampleProgramFromScript = do
                      LITI 1, -- 32: Load constant 1
                      OPR Sub, -- 33: Subtract
                      STO 1 6, -- 34: n := n - 1
-                     CAL 1 23, -- 35: Recursive call to fakultaet
+                     CAL 1 ".procedure_fakultaet_3", -- 35: Recursive call to fakultaet
+                     LAB ".if_4",
                      RET, -- 36: Return from procedure
 
                      -- Main program
+                     LAB ".block_5",
                      REA, -- 37: Read input
                      STO 0 3, -- 38: READ a
                      REA, -- 39: Read input
                      STO 0 4, -- 40: READ b
-                     CAL 0 3, -- 41: CALL potenz
+                     CAL 0 ".procedure_potenz_0", -- 41: CALL potenz
                      LOD 0 5, -- 42: Load pot
                      WRI, -- 43: WRITE pot
                      REA, -- 44: Read input
                      STO 0 6, -- 45: READ n
                      LITI 1, -- 46: Load constant 1
                      STO 0 7, -- 47: fak := 1
-                     CAL 0 23, -- 48: CALL fakultaet
+                     CAL 0 ".procedure_fakultaet_3", -- 48: CALL fakultaet
                      LOD 0 7, -- 49: Load fak
                      WRI, -- 50: WRITE fak
                      HLT -- 51: Halt program
