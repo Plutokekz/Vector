@@ -55,7 +55,7 @@ common warnings
     ghc-options: -Wall
 
 library compiler-lib
-     exposed-modules: SimpleParser Ast Machine AbstractOpCode Lexer Token
+     exposed-modules: SimpleParser Ast Machine AbstractOpCode Lexer Token RiscV
      hs-source-dirs: lib
      build-depends: base ^>=4.17.2.1, mtl ^>=2.3.1, containers ^>=0.6.7
      default-language: GHC2021

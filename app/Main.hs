@@ -4,8 +4,13 @@
 
 module Main where
 
+-- New parser
+
+import AbstractOpCode
 import Lexer (tokenize)
-import SimpleParser qualified as SP -- New parser
+import Machine
+import RiscV (generateAssembly)
+import SimpleParser qualified as SP
 import Token (Token (..), TokenPos (..))
 
 x :: String
@@ -92,13 +97,26 @@ matrixProgram =
 
 complexProgram :: String
 complexProgram =
+--  unlines
+--    [ "PROGRAMM Example1:",
+--      "CONST INT32 b = 12345;",
+--      "VAR INT32 a;",
+--      "VAR INT32 c;",
+--      "PROCEDURE add;",
+--      "BEGIN",
+--      "a = b + 25;",
+--      "END;",
+--      "BEGIN",
+--      "CALL add;",
+--      "c = a;",
+--      "END."
+--    ]
+
   unlines
     [ "PROGRAMM Example1:",
       "VAR INT32 a;",
       "VAR INT32 b;",
       "VAR INT32 pot;",
-      "VAR INT32 n;",
-      "VAR INT32 fak;",
       "PROCEDURE potenz;",
       "VAR INT32 y;",
       "BEGIN",
@@ -109,21 +127,11 @@ complexProgram =
       "    y = y - 1",
       "  END",
       "END;",
-      "PROCEDURE fakultaet;",
-      "IF n > 1 THEN BEGIN",
-      "  fak = fak * n;",
-      "  n = n - 1;",
-      "  CALL fakultaet",
-      "END;",
       "BEGIN",
-      "  READ a;",
-      "  READ b;",
+      "  a = 10;",
+      "  b = 3;",
       "  CALL potenz;",
-      "  WRITE pot;",
-      "  READ n;",
-      "  fak = 1;",
-      "  CALL fakultaet;",
-      "  WRITE fak",
+      "pot = pot",
       "END."
     ]
 
@@ -133,23 +141,31 @@ getTokens = map token
 
 main :: IO ()
 main = do
-  putStrLn "Testing simple program with SimpleParser:"
-  case tokenize simpleProgram of
-    Left err -> putStrLn $ "Lexer error: " ++ show err
-    Right (_, tokenPos, _) -> case SP.parse tokenPos of
-      Left err -> putStrLn $ "Parser error: " ++ show err
-      Right ast -> print ast
-
-  putStrLn "\nTesting matrix program with SimpleParser:"
-  case tokenize matrixProgram of
-    Left err -> putStrLn $ "Lexer error: " ++ show err
-    Right (_, tokenPos, _) -> case SP.parse tokenPos of
-      Left err -> putStrLn $ "Parser error: " ++ show err
-      Right ast -> print ast
-
-  putStrLn "\nTesting complex program with SimpleParser:"
   case tokenize complexProgram of
     Left err -> putStrLn $ "Lexer error: " ++ show err
     Right (_, tokenPos, _) -> case SP.parse tokenPos of
       Left err -> putStrLn $ "Parser error: " ++ show err
-      Right ast -> print ast
+      Right ast -> do 
+        putStrLn $ generateAssembly $ runCompiler (genProgramm ast)
+
+-- putStrLn $ generateAssembly [LITI 5, LITI 3, OPR Add]
+--  putStrLn "Testing simple program with SimpleParser:"
+--  case tokenize simpleProgram of
+--    Left err -> putStrLn $ "Lexer error: " ++ show err
+--    Right (_, tokenPos, _) -> case SP.parse tokenPos of
+--      Left err -> putStrLn $ "Parser error: " ++ show err
+--      Right ast -> print ast
+----  putStrLn "\nTesting matrix program with SimpleParser:"
+--  case tokenize matrixProgram of
+--    Left err -> putStrLn $ "Lexer error: " ++ show err
+--    Right (_, tokenPos, _) -> case SP.parse tokenPos of
+--      Left err -> putStrLn $ "Parser error: " ++ show err
+--      Right ast -> print ast
+--
+--  putStrLn "\nTesting complex program with SimpleParser:"
+--  case tokenize complexProgram of
+--    Left err -> putStrLn $ "Lexer error: " ++ show err
+--    Right (_, tokenPos, _) -> case SP.parse tokenPos of
+--      Left err -> putStrLn $ "Parser error: " ++ show err
+--      Right ast -> print ast
+--
