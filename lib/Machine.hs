@@ -41,7 +41,7 @@ step name = do
     Just entry -> return $ currentDepth - depth entry
     Nothing -> error $ "Name not found: " ++ name
 
-codeaddress :: Name -> Compiler Integer
+codeaddress :: Name -> Compiler String
 codeaddress name = do
   table <- gets symbolTable
   case Map.lookup name table of
@@ -68,9 +68,12 @@ genBlock (Block const variables procedures body) = do
       then do
         modify $ \s -> s {codeCounter = codeCounter s + 1}
         proceduresCode <- genProcedures procedures
-        d <- gets codeCounter
+        -- d <- gets codeCounter
+        c <- gets labelCounter
+        let label = ".block_" ++ show c
+        modify $ \s -> s {codeCounter = codeCounter s + 1, labelCounter = labelCounter s + 1}
         statementCode <- genStatement body
-        return $ constCode ++ variableCode ++ [JMP d] ++ proceduresCode ++ statementCode
+        return $ constCode ++ variableCode ++ [JMP label] ++ proceduresCode ++ [LAB label] ++ statementCode
       else do
         statementCode <- genStatement body
         return $ constCode ++ variableCode ++ statementCode
@@ -87,11 +90,14 @@ genProcedures procs = do
 genProcedure :: Procedure -> Compiler [Instruction]
 genProcedure (Procedure name block) = do
   d <- gets depthCounter
-  c <- gets codeCounter
-  pushSymbol (ProcedureEntry d c) name
+  -- c <- gets codeCounter
+  c <- gets labelCounter
+  let label = ".procedure_" ++ name ++ "_" ++ show c
+  modify $ \s -> s {labelCounter = labelCounter s + 1}
+  pushSymbol (ProcedureEntry d label) name
   blockCode <- genBlock block
-  modify $ \s -> s {codeCounter = codeCounter s + 1}
-  return $ blockCode ++ [RET]
+  modify $ \s -> s {codeCounter = codeCounter s + 2}
+  return $ [LAB label] ++ blockCode ++ [RET]
 
 genStatement :: Statement -> Compiler [Instruction]
 genStatement (Assignment name expression) = do
@@ -121,12 +127,19 @@ genStatement (If condition statement) = do
   -- update code counter for jump so the offest is right
   modify $ \s -> s {codeCounter = codeCounter s + 1}
   stmtCode <- genStatement statement
-  pos <- gets codeCounter
-  return $ condCode ++ [JOF pos] ++ stmtCode
+  -- pos <- gets codeCounter
+  c <- gets labelCounter
+  let label = ".if_" ++ show c
+  modify $ \s -> s {codeCounter = codeCounter s + 1, labelCounter = labelCounter s + 1}
+  return $ condCode ++ [JOF label] ++ stmtCode ++ [LAB label]
 genStatement (While condition statement) = do
   -- First save the position where the condition code will start
   -- We need this for the backward jump at the end
-  conditionStart <- gets codeCounter
+  -- conditionStart <- gets codeCounter
+  c <- gets labelCounter
+  let startLabel = ".while_start_" ++ show c
+  modify $ \s -> s {codeCounter = codeCounter s + 1, labelCounter = labelCounter s + 1}
+
   condCode <- genCondition condition
   -- Account for the JOF instruction in the code counter
   modify $ \s -> s {codeCounter = codeCounter s + 1}
@@ -134,9 +147,13 @@ genStatement (While condition statement) = do
   -- Account for the JMP instruction that will loop back
   modify $ \s -> s {codeCounter = codeCounter s + 1}
   -- Get final position for the forward jump
-  endPos <- gets codeCounter
+  -- endPos <- gets codeCounter
+  c <- gets labelCounter
+  let endLabel = ".while_end_" ++ show c
+  modify $ \s -> s {codeCounter = codeCounter s + 1, labelCounter = labelCounter s + 1}
+
   -- Return the complete instruction sequence
-  return $ condCode ++ [JOF endPos] ++ stmtCode ++ [JMP conditionStart]
+  return $ [LAB startLabel] ++ condCode ++ [JOF endLabel] ++ stmtCode ++ [JMP startLabel, LAB endLabel]
 
 genExpr :: Expression -> Compiler [Instruction]
 genExpr (Binary op expr1 expr2) = do
@@ -257,7 +274,8 @@ initialState =
     { symbolTable = Map.empty,
       depthCounter = 0,
       nameCounter = 0,
-      codeCounter = 0
+      codeCounter = 0,
+      labelCounter = 0
     }
 
 runCompiler :: Compiler a -> a

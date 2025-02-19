@@ -12,14 +12,15 @@ data Instruction
   | INC Integer
   | LITI Integer -- Load imidieate integer
   | LITF Double -- load imideate float
-  | JMP Integer
-  | JOT Integer
-  | JOF Integer
-  | CAL Integer Integer
+  | JMP String
+  | JOT String
+  | JOF String
+  | CAL Integer String
   | RET
   | OPR Operator
   | REA
   | WRI
+  | LAB String
   | HLT
   deriving (Show, Eq)
 
@@ -41,7 +42,7 @@ data Operator
 
 data TableEntry
   = VariableEntry {depth :: Integer, nameCount :: Integer, variabbleType :: Ast.Type}
-  | ProcedureEntry {depth :: Integer, codeAddress :: Integer}
+  | ProcedureEntry {depth :: Integer, label :: String}
   deriving (Show, Eq)
 
 type Name = String
@@ -52,7 +53,8 @@ data CompilerState = CompilerState
   { symbolTable :: NameTable,
     depthCounter :: Integer, -- incrent when entering a block and decrement when leaving
     nameCounter :: Integer, -- initialised with 3 for each block because of DL RA and SL bevore the local variables start
-    codeCounter :: Integer -- track the current position in the instruction array
+    codeCounter :: Integer, -- track the current position in the instruction array
+    labelCounter :: Integer
   }
   deriving (Show)
 
