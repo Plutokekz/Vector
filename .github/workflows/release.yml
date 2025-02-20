@@ -60,11 +60,7 @@ jobs:
       - name: Package application
         run: |
           mkdir -p artifacts
-          if [ "${{ runner.os }}" == "Windows" ]; then
-            cabal install --installdir=artifacts/ --install-method=copy
-          else
-            cabal install --installdir=artifacts/ --install-method=copy
-          fi
+          cabal install --installdir=artifacts/ --install-method=copy
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
