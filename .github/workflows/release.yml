@@ -13,10 +13,8 @@ on:
       - 'app/**/*.hs'
       - 'lib/**/*.hs'
       - 'test/**/*.hs'
-
 permissions:
   contents: write
-
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -24,6 +22,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macOS-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            asset_name: V-linux
+          - os: macOS-latest
+            asset_name: V-macos
+          - os: windows-latest
+            asset_name: V-windows.exe
     steps:
       - uses: actions/checkout@v4
       - uses: haskell-actions/setup@v2
@@ -64,9 +69,9 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ runner.os }}-binary
+          name: ${{ matrix.asset_name }}
           path: artifacts/
-
+          
   create-release:
     needs: build
     runs-on: ubuntu-latest
@@ -81,9 +86,39 @@ jobs:
         with:
           path: all-artifacts
       - name: Create Release
+        id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.git_hash.outputs.hash }}
           release_name: Release ${{ steps.git_hash.outputs.hash }}
+          draft: false
+          prerelease: false
+      - name: Upload Linux Build
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./all-artifacts/V-linux/V
+          asset_name: V-linux
+          asset_content_type: application/octet-stream
+      - name: Upload MacOS Build
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./all-artifacts/V-macos/V
+          asset_name: V-macos
+          asset_content_type: application/octet-stream
+      - name: Upload Windows Build
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./all-artifacts/V-windows.exe/V.exe
+          asset_name: V-windows.exe
+          asset_content_type: application/octet-stream
