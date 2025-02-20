@@ -4,16 +4,16 @@ import Control.Applicative (Alternative (..), optional)
 import Data.Char (isAlpha, isNumber, isSpace)
 import Data.List (nub)
 import Data.Maybe (fromMaybe)
-import Token (Token(..), TokenKeyword(..), Offset)
-
+import Token (Offset, Token (..), TokenKeyword (..))
 
 -- LexerError and Error Types
-data LexerError i = LexerError {
-  errorOffset :: Offset, 
-  error :: LexerErrorType i
-} deriving (Eq)
+data LexerError i = LexerError
+  { errorOffset :: Offset,
+    error :: LexerErrorType i
+  }
+  deriving (Eq)
 
-instance Show i => Show (LexerError i) where
+instance (Show i) => Show (LexerError i) where
   show (LexerError offset err) = "Lexer error at position " ++ show offset ++ ": " ++ show err
 
 -- Error Types take an input to return the character(s) that caused the error
@@ -29,7 +29,7 @@ data LexerErrorType i
   | UnexpectedNewline i
   deriving (Eq)
 
-instance Show i => Show (LexerErrorType i) where
+instance (Show i) => Show (LexerErrorType i) where
   show EndOfInput = "End of input"
   show Empty = "Empty"
   show (Unexpected i) = "Unexpected character: " ++ show i
@@ -43,17 +43,16 @@ instance Show i => Show (LexerErrorType i) where
 -- Lexer
 -- i: input for the lexer, in most cases a Char
 -- a: result after lexing, in most cases a Token Keyword
-newtype Lexer i a = Lexer {
-  runLexer :: [i] -> Offset -> Either [LexerError i] (Offset, a, [i])
-}
-
+newtype Lexer i a = Lexer
+  { runLexer :: [i] -> Offset -> Either [LexerError i] (Offset, a, [i])
+  }
 
 -- Lexer Functor, Applicative, Monad and Alternative instances
 -- Return a new Lexer with with f applied to output previous Lexer is succesful, otherwise return a Left with the error
 instance Functor (Lexer i) where
   fmap :: (a -> b) -> Lexer i a -> Lexer i b
   fmap f (Lexer p) = Lexer $ \input offset -> case p input offset of
-    Left err                      -> Left err
+    Left err -> Left err
     Right (offset', output, rest) -> Right (offset', f output, rest)
 
 -- Define how Lexers can be combined
@@ -64,38 +63,36 @@ instance Applicative (Lexer i) where
 
   (<*>) :: Lexer i (a -> b) -> Lexer i a -> Lexer i b
   Lexer g <*> Lexer p = Lexer $ \input offset -> case g input offset of
-    Left err                  -> Left err
+    Left err -> Left err
     Right (offset', g', rest) -> case p rest offset' of
-      Left err                        -> Left err
+      Left err -> Left err
       Right (offset'', output, rest') -> Right (offset'', g' output, rest')
 
 instance Monad (Lexer i) where
   (>>=) :: Lexer i a -> (a -> Lexer i b) -> Lexer i b
   Lexer p >>= k = Lexer $ \input offset -> case p input offset of
-    Left err                      -> Left err
+    Left err -> Left err
     Right (offset', output, rest) -> let Lexer p' = k output in p' rest offset'
 
 -- If the first lexer fails we use the alternative one otherwise we use the first one
 instance (Eq i) => Alternative (Lexer i) where
-  empty :: Eq i => Lexer i a
+  empty :: (Eq i) => Lexer i a
   empty = Lexer $ \_ offset -> Left [LexerError offset Empty]
 
-  (<|>) :: Eq i => Lexer i a -> Lexer i a -> Lexer i a
-  Lexer l <|> Lexer r = Lexer $ \input offset -> case l input offset of 
-    Left err                       -> case r input offset of 
-      Left err'                     -> Left $ nub $ err <> err'
+  (<|>) :: (Eq i) => Lexer i a -> Lexer i a -> Lexer i a
+  Lexer l <|> Lexer r = Lexer $ \input offset -> case l input offset of
+    Left err -> case r input offset of
+      Left err' -> Left $ nub $ err <> err'
       Right (offset', output, rest) -> Right (offset', output, rest)
     Right (offset'', output, rest) -> Right (offset'', output, rest)
-
 
 -- Helper function to return a single character if the predicate is true for the input, otherwise return an error
 matchInputWithError :: (i -> LexerErrorType i) -> (i -> Bool) -> Lexer i i
 matchInputWithError raiseError predicate = Lexer $ \input offset -> case input of
-    [] -> Left [LexerError offset EndOfInput]
-    firstChar : rest
-      | predicate firstChar -> Right (offset + 1, firstChar, rest) 
-      | otherwise -> Left [LexerError offset $ raiseError firstChar]
-
+  [] -> Left [LexerError offset EndOfInput]
+  firstChar : rest
+    | predicate firstChar -> Right (offset + 1, firstChar, rest)
+    | otherwise -> Left [LexerError offset $ raiseError firstChar]
 
 -- Predicate matching functions for different error types
 satisfyAlpha :: Lexer Char Char
@@ -110,7 +107,6 @@ satisfySpace = matchInputWithError ExpectedSpace isSpace
 satisfyNotNewline :: Lexer Char Char
 satisfyNotNewline = matchInputWithError UnexpectedNewline (/= '\n')
 
-
 -- Functions to match specific characters, sprints or EOF
 matchChar :: (Eq i) => i -> Lexer i i
 matchChar i = matchInputWithError (Expected i) (== i)
@@ -118,27 +114,26 @@ matchChar i = matchInputWithError (Expected i) (== i)
 matchString :: (Eq i) => [i] -> Lexer i [i]
 matchString [] = return []
 matchString (x : xs) = do
-  y  <- matchChar x
+  y <- matchChar x
   ys <- matchString xs
   return (y : ys)
 
 matchEOF :: Lexer i ()
 matchEOF = Lexer $ \input offset -> case input of
-  []     -> Right (offset, (), [])
+  [] -> Right (offset, (), [])
   firstChar : _ -> Left [LexerError offset $ ExpectedEndOfFile firstChar]
 
-
--- Actual lexable objects: number, identifier, operator, comment, whitespaces 
+-- Actual lexable objects: number, identifier, operator, comment, whitespaces
 
 -- TODO: number currently only differentiates between Integers (INumber) and Floats (FNumber), no precisions
- -- could easily add precision by counting the length of the number here
+-- could easily add precision by counting the length of the number here
 number :: Lexer Char TokenKeyword
 number = do
   digits <- some satisfyNumeric
   hasDecimal <- optional (matchChar '.')
   case hasDecimal of
     Nothing -> return $ INumber (read digits)
-    Just _  -> do
+    Just _ -> do
       decimalDigits <- some satisfyNumeric
       return $ FNumber (read $ digits ++ "." ++ decimalDigits)
 
@@ -194,18 +189,18 @@ operator = do
       case next of
         Just '*' -> pure ElementMult
         Just '/' -> pure ElementDiv
-        Nothing  -> pure Dot
+        Nothing -> pure Dot
     '<' -> do
       -- Look ahead for =
       next <- optional (matchChar '=')
       case next of
-        Just _  -> pure LTE
+        Just _ -> pure LTE
         Nothing -> pure LessThen
     '>' -> do
       -- Look ahead for =
       next <- optional (matchChar '=')
       case next of
-        Just _  -> pure GTE
+        Just _ -> pure GTE
         Nothing -> pure GreaterThen
 
     -- simple operators
@@ -229,18 +224,22 @@ operator = do
 -- Handle comments
 comment :: Lexer Char ()
 comment = do
-    matchString "--"  -- Match comment start
-    many satisfyNotNewline  -- Match everything until newline
-    -- optional (matchChar '\n')  -- Match optional newline
-    return ()
+  matchString "--" -- Match comment start
+  many satisfyNotNewline -- Match everything until newline
+  -- optional (matchChar '\n')  -- Match optional newline
+  return ()
 
 -- Update whitespace to handle comments
 whitespace :: Lexer Char ()
 whitespace = do
-    some (satisfySpace <|> (do 
-        comment
-        return ' '))
-    return ()
+  some
+    ( satisfySpace
+        <|> ( do
+                comment
+                return ' '
+            )
+    )
+  return ()
 
 lexToken :: Lexer Char TokenKeyword
 lexToken = identifier <|> number <|> operator
@@ -254,14 +253,14 @@ nextTokenWithPos :: Lexer Char Token
 nextTokenWithPos = do
   optional whitespace
   Lexer $ \input offset -> case runLexer lexToken input offset of
-      Left err                   -> Left err
-      Right (offset', tok, rest) -> Right (offset', Token offset tok, rest)
+    Left err -> Left err
+    Right (offset', tok, rest) -> Right (offset', Token offset tok, rest)
 
 tokenize :: String -> Either [LexerError Char] (Offset, [Token], [Char])
 tokenize input = runLexer tokenizeSequence input 0
   where
     tokenizeSequence = do
-      tokens <- many nextTokenWithPos      -- Parse all tokens
-      optional whitespace                  -- Skip any trailing whitespace
-      matchEOF                            -- Ensure we're at end of input
+      tokens <- many nextTokenWithPos -- Parse all tokens
+      optional whitespace -- Skip any trailing whitespace
+      matchEOF -- Ensure we're at end of input
       return tokens

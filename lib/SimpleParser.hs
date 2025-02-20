@@ -1,42 +1,43 @@
-module SimpleParser
-where
+module SimpleParser where
 
+import Ast
 import Control.Applicative (Alternative (..), many, optional)
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Monoid (Monoid (..))
 import Data.Semigroup (Semigroup (..))
-import Token (TokenKeyword(..), Token(..))
-import Ast
 import Lexer (tokenize)
+import Token (Token (..), TokenKeyword (..))
 
 -- -----------------------------------------------------------------------------
--- 1. ParseError 
+-- 1. ParseError
 -- -----------------------------------------------------------------------------
 
 -- | Handle parsing errors with position information
-data ParseError = ParseError { 
-  -- TODO: eventually change Int to Line, Offset -> currently it's only the relative position from the start of the file
-  errorPos :: Int,
-  expected :: [TokenKeyword],
-  got :: TokenKeyword
-} deriving (Eq)
+data ParseError = ParseError
+  { -- TODO: eventually change Int to Line, Offset -> currently it's only the relative position from the start of the file
+    errorPos :: Int,
+    expected :: [TokenKeyword],
+    got :: TokenKeyword
+  }
+  deriving (Eq)
 
 -- | Create a parse error from current token and expected tokens
 mkError :: [TokenKeyword] -> Token -> ParseError
-mkError expected token = ParseError {
-  errorPos = tokenOffset token,
-  expected = expected,
-  got = tokenKeyword token
-}
+mkError expected token =
+  ParseError
+    { errorPos = tokenOffset token,
+      expected = expected,
+      got = tokenKeyword token
+    }
 
 -- | Show a parse error with context from the input string
 showParseError :: String -> ParseError -> String
 showParseError input (ParseError pos expected got) =
-  unlines [
-    "Parse error at position " ++ show pos ++ ": Expected one from " ++ show expected ++ ", got " ++ show got,
-    "Near: " ++ take pos input ++ "<ERROR LOCATION>"
-  ]
+  unlines
+    [ "Parse error at position " ++ show pos ++ ": Expected one from " ++ show expected ++ ", got " ++ show got,
+      "Near: " ++ take pos input ++ "<ERROR LOCATION>"
+    ]
 
 -- | Used to define the mappend operation
 instance Semigroup ParseError where
@@ -52,10 +53,11 @@ instance Monoid ParseError where
 -- -----------------------------------------------------------------------------
 
 -- | State of the parser containing current and remaining tokens (each token includes its position)
-data ParserState = ParserState { 
-  currentToken :: Token,
-  remainingTokens :: [Token]
-} deriving (Show)
+data ParserState = ParserState
+  { currentToken :: Token,
+    remainingTokens :: [Token]
+  }
+  deriving (Show)
 
 -- | The Parser monad - combines State for token management and Either for error handling
 type Parser a = ExceptT ParseError (State ParserState) a
@@ -67,9 +69,9 @@ type Parser a = ExceptT ParseError (State ParserState) a
 -- | Main parsing function that takes a list of tokens and returns either an error or AST
 parse :: String -> Either String Program
 parse input = case tokenize input of
-  Left err -> Left (show err)  -- Convert lexer error to string
+  Left err -> Left (show err) -- Convert lexer error to string
   Right (_, tokens, _) -> case evalState (runExceptT parseProgram) (initParserState tokens) of
-    Left err  -> Left (showParseError input err)
+    Left err -> Left (showParseError input err)
     Right ast -> Right ast
 
 -- | Initialize parser state with a list of tokens
@@ -83,7 +85,7 @@ advance = do
   current <- gets currentToken
   remaining <- gets remainingTokens
   case remaining of
-    []            -> return (tokenKeyword current) -- At end of input
+    [] -> return (tokenKeyword current) -- At end of input
     (next : rest) -> do
       put (ParserState next rest)
       return (tokenKeyword current)
@@ -92,8 +94,8 @@ advance = do
 match :: TokenKeyword -> Parser TokenKeyword
 match expected = do
   current <- gets currentToken
-  if tokenKeyword current == expected 
-    then advance 
+  if tokenKeyword current == expected
+    then advance
     else throwError $ mkError [expected] current
 
 -- | Parse a token matching a predicate
@@ -130,7 +132,8 @@ char c = do
     Plus | c == '+' -> advance >> return c
     Minus | c == '-' -> advance >> return c
     _ -> throwError $ mkError expectedTokens current
-      where expectedTokens = [Plus | c == '+'] ++ [Minus | c == '-']
+      where
+        expectedTokens = [Plus | c == '+'] ++ [Minus | c == '-']
 
 -- -----------------------------------------------------------------------------
 -- 5. CONCRETE PARSERS
@@ -147,8 +150,9 @@ parseProgram = do
 
 parseIdentifier :: Parser String
 parseIdentifier = parseToken getIdentifier [Identifier ""]
-  where getIdentifier (Identifier name) = Just name
-        getIdentifier _ = Nothing
+  where
+    getIdentifier (Identifier name) = Just name
+    getIdentifier _ = Nothing
 
 parseBlock :: Parser Block
 parseBlock = do
@@ -277,9 +281,15 @@ parseType = do
 parseMatrixType :: Parser MatrixSpecifier
 parseMatrixType = parseToken getSpecifier specifierTokens
   where
-    specifierTokens = [Token.Sparse, Token.Identity, Token.Diagonal, 
-                      Token.UpperTriangular, Token.LowerTriangular, Token.Orthogonal]
-    
+    specifierTokens =
+      [ Token.Sparse,
+        Token.Identity,
+        Token.Diagonal,
+        Token.UpperTriangular,
+        Token.LowerTriangular,
+        Token.Orthogonal
+      ]
+
     getSpecifier tok = case tok of
       Token.Sparse -> Just Ast.Sparse
       Token.Identity -> Just Ast.Identity
@@ -307,7 +317,7 @@ parseNumber = parseToken getNumber [INumber 0]
 
 -- | Parse an assignment statement
 parseAssignment :: Parser Statement
-parseAssignment = do 
+parseAssignment = do
   name <- parseIdentifier
   match Equals
   Assignment name <$> parseExpression

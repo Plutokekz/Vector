@@ -728,7 +728,6 @@ genExampleProgramFromScript = do
                      INC 5, -- 1: Reserve space for global variables (a,b,pot,n,fak)
                      JMP ".block_5", -- 2: Jump to main program
                      LAB ".procedure_potenz_0",
-
                      -- PROCEDURE potenz (calculating a^b)
                      INC 1, -- 3: Reserve space for local variable y
                      LITI 1, -- 4: Load constant 1
@@ -736,7 +735,6 @@ genExampleProgramFromScript = do
                      LOD 1 4, -- 6: Load value of b
                      STO 0 3, -- 7: y := b
                      LAB ".while_start_1",
-
                      -- While condition (NOT y < 1)
                      LOD 0 3, -- 8: Load y
                      LITI 1, -- 9: Load constant 1

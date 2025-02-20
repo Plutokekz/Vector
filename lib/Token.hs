@@ -1,20 +1,22 @@
-module Token (
-    TokenKeyword(..),
-    Token(..),
-    Offset
-) where
+module Token
+  ( TokenKeyword (..),
+    Token (..),
+    Offset,
+  )
+where
 
 type Offset = Int
 
-data Token = Token {
-  tokenOffset :: Offset, 
-  tokenKeyword :: TokenKeyword
-} deriving (Show, Eq)
+data Token = Token
+  { tokenOffset :: Offset,
+    tokenKeyword :: TokenKeyword
+  }
+  deriving (Show, Eq)
 
 data TokenKeyword
   = PROGRAM
-  -- programm keywords
-  | CONST
+  | -- programm keywords
+    CONST
   | VAR
   | PROCEDURE
   | CALL
@@ -28,12 +30,12 @@ data TokenKeyword
   | NOT
   | Identifier String
   | END
-  -- simple comparison operators
-  | Equals
+  | -- simple comparison operators
+    Equals
   | LessThen
   | GreaterThen
-  -- syntactical elements
-  | LParent
+  | -- syntactical elements
+    LParent
   | RParent
   | Dot
   | SemiColon
@@ -41,8 +43,8 @@ data TokenKeyword
   | Comma
   | LBracket
   | RBracket
-  -- number types
-  | INT8
+  | -- number types
+    INT8
   | INT16
   | INT32
   | INT64
@@ -54,31 +56,31 @@ data TokenKeyword
   | FLOAT128
   | FNumber Double
   | INumber Integer
-  -- matrix types
-  | Sparse
+  | -- matrix types
+    Sparse
   | Identity
   | Diagonal
   | Orthogonal
   | LowerTriangular
   | UpperTriangular
-  -- simple matrix operators
-  | MatrixMult
+  | -- simple matrix operators
+    MatrixMult
   | Transpose
-  -- compound operators
-  -- element wise operators
-  | ElementMult
+  | -- compound operators
+    -- element wise operators
+    ElementMult
   | ElementDiv
-  -- compound comparison operators (less than or equal to...)
-  | LTE
+  | -- compound comparison operators (less than or equal to...)
+    LTE
   | GTE
   | NotEqual
-  -- logical operators
-  | T
+  | -- logical operators
+    T
   | F
   | And
   | Or
-  -- arithmetic operators
-  | Plus
+  | -- arithmetic operators
+    Plus
   | Minus
   | Times
   | Divide
