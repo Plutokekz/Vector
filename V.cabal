@@ -73,7 +73,7 @@ executable V
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base ^>=4.17.2.1, compiler-lib
+    build-depends:    base ^>=4.17.2.1, cmdargs ^>=0.10.22, compiler-lib
 
     -- Directories containing source files.
     hs-source-dirs:   app
