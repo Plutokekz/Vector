@@ -6,12 +6,10 @@ module Main where
 
 -- New parser
 
-import AbstractOpCode
-import Lexer (tokenize)
+import AbstractOpCode ()
 import Machine
 import RiscV (generateAssembly)
 import SimpleParser qualified as SP
-import Token (Token (..), TokenPos (..))
 
 x :: String
 x = "PROGRAMM test; VAR x = 5;"
@@ -113,7 +111,7 @@ complexProgram =
 --    ]
 
   unlines
-    [ "PROGRAMM Example1:",
+    [ "PROGRAM Example1:",
       "VAR INT32 a;",
       "VAR INT32 b;",
       "VAR INT32 pot;",
@@ -135,18 +133,21 @@ complexProgram =
       "END."
     ]
 
--- Extract tokens from TokenPos
-getTokens :: [TokenPos] -> [Token]
-getTokens = map token
-
 main :: IO ()
 main = do
-  case tokenize complexProgram of
-    Left err -> putStrLn $ "Lexer error: " ++ show err
-    Right (_, tokenPos, _) -> case SP.parse tokenPos of
-      Left err -> putStrLn $ "Parser error: " ++ show err
-      Right ast -> do 
-        putStrLn $ generateAssembly $ runCompiler (genProgramm ast)
+  putStrLn "Testing complex program with parser and assembly generation:"
+  case SP.parse complexProgram of
+    Left err -> putStrLn err
+    Right ast -> do
+      putStrLn $ generateAssembly $ runCompiler (genProgramm ast)
+
+
+  -- case tokenize complexProgram of
+  --   Left err -> putStrLn $ "Lexer error: " ++ show err
+  --   Right (_, tokenPos, _) -> case SP.parse tokenPos of
+  --     Left err -> putStrLn $ "Parser error: " ++ show err
+  --     Right ast -> do 
+  --       putStrLn $ generateAssembly $ runCompiler (genProgramm ast)
 
 -- putStrLn $ generateAssembly [LITI 5, LITI 3, OPR Add]
 --  putStrLn "Testing simple program with SimpleParser:"

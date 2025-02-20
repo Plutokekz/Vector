@@ -1,33 +1,18 @@
 module Token (
+    TokenKeyword(..),
     Token(..),
-    TokenPos(..),
-    LexerError(..),
-    LexerErrorType(..),
     Offset
 ) where
 
 type Offset = Int
 
-data LexerError i = LexerError {
-  erOffset :: Offset, 
-  erError :: LexerErrorType i
-  } deriving (Eq, Show)
-
-data LexerErrorType i
-  = EndOfInput
-  | Unexpected i
-  | Empty
-  | ExpectedEndOfFile i
-  | Expected i i
-  deriving (Eq, Show)
-
-data TokenPos = TokenPos {
+data Token = Token {
   tokenOffset :: Offset, 
-  token :: Token
-  } deriving (Show, Eq)
+  tokenKeyword :: TokenKeyword
+} deriving (Show, Eq)
 
-data Token
-  = PROGRAMM
+data TokenKeyword
+  = PROGRAM
   -- programm keywords
   | CONST
   | VAR
