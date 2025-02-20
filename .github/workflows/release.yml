@@ -81,12 +81,9 @@ jobs:
         with:
           path: all-artifacts
       - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.git_hash.outputs.hash }}
-          name: Release ${{ steps.git_hash.outputs.hash }}
-          files: all-artifacts/**/*
-          draft: false
-          prerelease: false
+        uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.git_hash.outputs.hash }}
+          release_name: Release ${{ steps.git_hash.outputs.hash }}
