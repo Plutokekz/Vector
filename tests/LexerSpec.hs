@@ -1,36 +1,37 @@
 module LexerSpec (spec) where
 
-import Lexer (Lexer (runLexer), LexerError (..), LexerErrorType (..), identifier, matchChar, matchString, number, operator, runLexer, whitespace)
+import Lexer (Lexer (runLexer), identifier, number, operator, runLexer, matchString, matchInputWithError, 
+ whitespace, LexerError (..), LexerErrorType (..))
+import Token (TokenKeyword (..))
 import Test.Hspec
-import Token
 
 spec :: Spec
 spec = do
-  describe "testToken" testToken'
-  describe "testString" testString
+  describe "testmatchInputWithError" testmatchInputWithError
+  describe "testmatchString" testmatchString
   describe "testNumber" testNumber
   describe "testIdentifier" testIdentifier
   describe "testOperator" testOperator
   describe "testWhitespace" testWhitespace
 
-testToken' :: Spec
-testToken' = do
-  describe "Lexer.token'" $ do
+testmatchInputWithError :: Spec
+testmatchInputWithError = do
+  describe "Lexer.matchInputWithError" $ do
     it "returns new lexer which results in EndOfInput" $ do
-      runLexer (matchChar 'c') "" 0 `shouldBe` Left [LexerError 0 EndOfInput]
+      runLexer (matchInputWithError Unexpected ('c' ==)) "" 0 `shouldBe` Left [LexerError 0 EndOfInput]
     it "returns new lexer which results in Unexpected" $ do
-      runLexer (matchChar 'c') "x" 0 `shouldBe` Left [LexerError 0 (Expected 'c' 'x')]
+      runLexer (matchInputWithError Unexpected ('c' ==)) "x" 0 `shouldBe` Left [LexerError 0 (Unexpected 'x')]
     it "returns new lexer which results in Right with parsed char" $ do
-      runLexer (matchChar 'c') "c" 0 `shouldBe` Right (1, 'c', "")
+      runLexer (matchInputWithError Unexpected ('c' ==)) "c" 0 `shouldBe` Right (1, 'c', "")
 
-testString :: Spec
-testString = do
-  describe "Lexer.string" $ do
-    it "returns new lexer which parses the given string" $ do
+testmatchString :: Spec
+testmatchString = do
+  describe "Lexer.matchString" $ do
+    it "returns new lexer which parses the given matchString" $ do
       runLexer (matchString "Hallo") "Hallo Welt" 0 `shouldBe` Right (5, "Hallo", " Welt")
-    it "returns new lexer which parses the given string resulting in unexpected token" $ do
+    it "returns new lexer which parses the given matchString resulting in unexpected token" $ do
       runLexer (matchString "Hallo") "Welt Hallo" 0 `shouldBe` Left [LexerError 0 (Expected 'H' 'W')]
-    it "returns new lexer which parses the given string resulting in EndOfInput" $ do
+    it "returns new lexer which parses the given matchString resulting in EndOfInput" $ do
       runLexer (matchString "Hallo") "" 0 `shouldBe` Left [LexerError 0 EndOfInput]
 
 testNumber :: Spec
@@ -50,7 +51,7 @@ testNumber = do
 testIdentifier :: Spec
 testIdentifier = do
   describe "Lexer.identifier" $ do
-    it "returns PROGRAMM token" $ do
+    it "returns PROGRAM token" $ do
       runLexer identifier "PROGRAM" 0 `shouldBe` Right (7, PROGRAM, "")
     it "returns CONST token" $ do
       runLexer identifier "CONST" 0 `shouldBe` Right (5, CONST, "")
@@ -150,7 +151,7 @@ testOperator = do
       runLexer operator "\'" 0 `shouldBe` Right (1, Transpose, "")
 
 testWhitespace :: Spec
-testWhitespace = do
+testWhitespace = do 
   describe "Lexer.whitespace" $ do
     it "skips whitespace returns empty tuple" $ do
       runLexer whitespace " " 0 `shouldBe` Right (1, (), "")

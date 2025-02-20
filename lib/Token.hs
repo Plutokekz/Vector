@@ -1,9 +1,4 @@
-module Token
-  ( TokenKeyword (..),
-    Token (..),
-    Offset,
-  )
-where
+module Token where
 
 type Offset = Int
 
