@@ -58,20 +58,23 @@ data Factor
   deriving (Show)
 
 data Type
-  = IntType IntSize
-  | FloatType FloatSize
-  | MatrixType
-      { baseType :: Type,
-        dimensions :: (Integer, Integer),
-        matrixSpec :: Maybe MatrixSpecifier
+  = NumberType NumberType
+  | VectorizedType
+      { numberType :: NumberType,
+        dimensions :: Dimensions,
+        specifier :: Maybe Specifier  -- e.g. Identity, Einheitsvektor, Sparse, etc.
       }
   deriving (Show, Eq)
 
-data IntSize = Int8 | Int16 | Int32 | Int64 | Int128 deriving (Show, Eq)
+data NumberType = IntType IntType | FloatType FloatType deriving (Show, Eq)
 
-data FloatSize = Float8 | Float16 | Float32 | Float64 | Float128 deriving (Show, Eq)
+data IntType = Int8 | Int16 | Int32 | Int64 | Int128 deriving (Show, Eq)
 
-data MatrixSpecifier
+type Dimensions = [Integer]
+
+data FloatType = Float8 | Float16 | Float32 | Float64 | Float128 deriving (Show, Eq)
+
+data Specifier
   = Sparse
   | Identity
   | Diagonal
