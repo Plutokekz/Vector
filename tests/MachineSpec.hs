@@ -35,7 +35,7 @@ testGenVaribles :: Spec
 testGenVaribles = do
   describe "Test single Variable declaration" $ do
     it "generates correct instructions for x float128" $ do
-      let programm = ("x", Ast.FloatType Ast.Float128)
+      let programm = ("x", Ast.NumberType (Ast.FloatType Ast.Float128))
       let (_, finalState) = runCompilerWithState (genVariable programm)
 
       depthCounter finalState `shouldBe` 0
@@ -43,7 +43,7 @@ testGenVaribles = do
       codeCounter finalState `shouldBe` 0
   describe "Test Variables declaration" $ do
     it "generates correct instructions for a list of variables" $ do
-      let programm = [("x", Ast.IntType Ast.Int8), ("y", Ast.FloatType Ast.Float128), ("z", Ast.IntType Ast.Int64), ("A", Ast.MatrixType (Ast.IntType Ast.Int8) (64, 64) Nothing), ("B", Ast.FloatType Ast.Float128)]
+      let programm = [("x", Ast.NumberType $ Ast.IntType Ast.Int8), ("y", Ast.NumberType $ Ast.FloatType Ast.Float128), ("z", Ast.NumberType $ Ast.IntType Ast.Int64), ("A", Ast.VectorizedType (Ast.IntType Ast.Int8) [64, 64] Nothing), ("B", Ast.NumberType $ Ast.FloatType Ast.Float128)]
       let (instructions, finalState) = runCompilerWithState (genVariables programm)
 
       instructions `shouldBe` [INC 5]
@@ -56,7 +56,7 @@ testGenConstants :: Spec
 testGenConstants = do
   describe "Test single constant declaration" $ do
     it "generates correct instructions for x float128" $ do
-      let programm = ("x", Ast.FloatType Ast.Float128, Ast.FloatVal 99.012)
+      let programm = ("x", Ast.NumberType $ Ast.FloatType Ast.Float128, Ast.FloatVal 99.012)
       let (instructions, finalState) = runCompilerWithState (genConstant programm)
 
       instructions `shouldBe` [LITF 99.012, STO 0 0]
@@ -66,7 +66,7 @@ testGenConstants = do
       codeCounter finalState `shouldBe` 2
   describe "Test constants declaration" $ do
     it "generates correct instructions for list of constants" $ do
-      let programm = [("x", Ast.IntType Ast.Int8, Ast.IntVal 200), ("y", Ast.FloatType Ast.Float128, Ast.FloatVal 99.012), ("z", Ast.IntType Ast.Int64, Ast.IntVal 999912)]
+      let programm = [("x", Ast.NumberType $ Ast.IntType Ast.Int8, Ast.IntVal 200), ("y", Ast.NumberType $ Ast.FloatType Ast.Float128, Ast.FloatVal 99.012), ("z", Ast.NumberType $ Ast.IntType Ast.Int64, Ast.IntVal 999912)]
       let (instructions, finalState) = runCompilerWithState (genConstants programm)
 
       instructions `shouldBe` [INC 3, LITI 200, STO 0 0, LITF 99.012, STO 0 1, LITI 999912, STO 0 2]
@@ -152,7 +152,7 @@ testGenExpression = do
                 nameCounter = 1,
                 codeCounter = 0,
                 symbolTable =
-                  Map.fromList [("x", VariableEntry {depth = 0, nameCount = 0, variabbleType = Ast.IntType Ast.Int64})]
+                  Map.fromList [("x", VariableEntry {depth = 0, nameCount = 0, variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64})]
               }
 
       let (instructions, finalState) = runState (genUnary op expr) initialStateWithX
@@ -177,7 +177,7 @@ testGenExpression = do
                         VariableEntry
                           { depth = 0,
                             nameCount = 0,
-                            variabbleType = Ast.IntType Ast.Int64
+                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64
                           }
                       )
                     ]
@@ -211,7 +211,7 @@ testGenExpression = do
               { depthCounter = 0,
                 nameCounter = 4,
                 codeCounter = 0,
-                symbolTable = Map.fromList [("x", VariableEntry {depth = 0, nameCount = 3, variabbleType = Ast.IntType Ast.Int64})]
+                symbolTable = Map.fromList [("x", VariableEntry {depth = 0, nameCount = 3, variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64})]
               }
       let (instructions, finalState) = runState (genExpr expr) initialStateWithX
       instructions `shouldBe` [LOD 0 3]
@@ -284,8 +284,8 @@ testGenExpression = do
                 codeCounter = 0,
                 symbolTable =
                   Map.fromList
-                    [ ("m1", VariableEntry {depth = 0, nameCount = 3, variabbleType = Ast.MatrixType (Ast.IntType Ast.Int64) (10, 10) Nothing}),
-                      ("m2", VariableEntry {depth = 0, nameCount = 4, variabbleType = Ast.MatrixType (Ast.IntType Ast.Int64) (10, 10) Nothing})
+                    [ ("m1", VariableEntry {depth = 0, nameCount = 3, variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) [10, 10] Nothing}),
+                      ("m2", VariableEntry {depth = 0, nameCount = 4, variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) [10, 10] Nothing})
                     ]
               }
       let (instructions, finalState) = runState (genExpr expr) initialStateWithMatrix
@@ -310,8 +310,8 @@ testConditions = do
             initialState
               { symbolTable =
                   Map.fromList
-                    [ ("x", VariableEntry 0 3 (Ast.IntType Ast.Int8)),
-                      ("y", VariableEntry 0 4 (Ast.IntType Ast.Int8))
+                    [ ("x", VariableEntry 0 3 (Ast.NumberType $ Ast.IntType Ast.Int8)),
+                      ("y", VariableEntry 0 4 (Ast.NumberType $ Ast.IntType Ast.Int8))
                     ]
               }
       let cond =
@@ -328,8 +328,8 @@ testConditions = do
             initialState
               { symbolTable =
                   Map.fromList
-                    [ ("x", VariableEntry 0 3 (Ast.FloatType Ast.Float8)),
-                      ("y", VariableEntry 0 4 (Ast.FloatType Ast.Float8))
+                    [ ("x", VariableEntry 0 3 (Ast.NumberType $ Ast.FloatType Ast.Float8)),
+                      ("y", VariableEntry 0 4 (Ast.NumberType $ Ast.FloatType Ast.Float8))
                     ]
               }
       let cond =
@@ -346,8 +346,8 @@ testConditions = do
             initialState
               { symbolTable =
                   Map.fromList
-                    [ ("x", VariableEntry 0 3 (Ast.IntType Ast.Int8)),
-                      ("y", VariableEntry 0 4 (Ast.FloatType Ast.Float128))
+                    [ ("x", VariableEntry 0 3 (Ast.NumberType $ Ast.IntType Ast.Int8)),
+                      ("y", VariableEntry 0 4 (Ast.NumberType $ Ast.FloatType Ast.Float128))
                     ]
               }
       let cond =
@@ -376,7 +376,7 @@ testConditions = do
             initialState
               { symbolTable =
                   Map.fromList
-                    [ ("x", VariableEntry 1 3 (Ast.IntType Ast.Int32)) -- Variable from outer block
+                    [ ("x", VariableEntry 1 3 (Ast.NumberType $ Ast.IntType Ast.Int32)) -- Variable from outer block
                     ],
                 depthCounter = 2 -- Current block is nested
               }
@@ -406,7 +406,7 @@ testGenStatement = do
                         VariableEntry
                           { depth = 0,
                             nameCount = 0,
-                            variabbleType = Ast.IntType Ast.Int64
+                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64
                           }
                       )
                     ]
@@ -460,7 +460,7 @@ testGenStatement = do
                         VariableEntry
                           { depth = 0,
                             nameCount = 0,
-                            variabbleType = Ast.IntType Ast.Int64
+                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64
                           }
                       )
                     ]
@@ -502,14 +502,14 @@ testGenStatement = do
                         VariableEntry
                           { depth = 0,
                             nameCount = 0,
-                            variabbleType = Ast.IntType Ast.Int64
+                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64
                           }
                       ),
                       ( "y",
                         VariableEntry
                           { depth = 0,
                             nameCount = 1,
-                            variabbleType = Ast.IntType Ast.Int64
+                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64
                           }
                       )
                     ]
@@ -538,14 +538,14 @@ testGenStatement = do
                         VariableEntry
                           { depth = 0,
                             nameCount = 0,
-                            variabbleType = Ast.IntType Ast.Int64
+                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64
                           }
                       ),
                       ( "y",
                         VariableEntry
                           { depth = 0,
                             nameCount = 1,
-                            variabbleType = Ast.IntType Ast.Int64
+                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64
                           }
                       )
                     ]
@@ -574,7 +574,7 @@ testGenStatement = do
                         VariableEntry
                           { depth = 0,
                             nameCount = 0,
-                            variabbleType = Ast.IntType Ast.Int64
+                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64
                           }
                       )
                     ]
@@ -657,18 +657,18 @@ exampleProgramAst =
     ( Ast.Block
         { Ast.constDecls = [],
           Ast.varDecls =
-            [ ("a", Ast.IntType Ast.Int32),
-              ("b", Ast.IntType Ast.Int32),
-              ("pot", Ast.IntType Ast.Int32),
-              ("n", Ast.IntType Ast.Int32),
-              ("fak", Ast.IntType Ast.Int32)
+            [ ("a", Ast.NumberType $ Ast.IntType Ast.Int32),
+              ("b", Ast.NumberType $ Ast.IntType Ast.Int32),
+              ("pot", Ast.NumberType $ Ast.IntType Ast.Int32),
+              ("n", Ast.NumberType $ Ast.IntType Ast.Int32),
+              ("fak", Ast.NumberType $ Ast.IntType Ast.Int32)
             ],
           Ast.procedures =
             [ Ast.Procedure
                 "potenz"
                 ( Ast.Block
                     { Ast.constDecls = [],
-                      Ast.varDecls = [("y", Ast.IntType Ast.Int32)],
+                      Ast.varDecls = [("y", Ast.NumberType $ Ast.IntType Ast.Int32)],
                       Ast.procedures = [],
                       Ast.instruction =
                         Ast.Compound
