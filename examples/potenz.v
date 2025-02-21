@@ -17,4 +17,4 @@ BEGIN
   b = 3;
   CALL potenz;
 pot = pot
-END
+END.

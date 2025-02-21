@@ -1,4 +1,4 @@
-PROGRAMM test2;
+PROGRAM test2:
     VAR x = 5;
     VAR A: Sparse[INT32];
     VAR B: Sparse[INT32];

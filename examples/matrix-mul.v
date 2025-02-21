@@ -1,4 +1,4 @@
-PROGRAMM matrix:
+PROGRAM matrix:
   VAR INT32[3,3] A Sparse;
   VAR INT32[3,3] B Identity;
   BEGIN
