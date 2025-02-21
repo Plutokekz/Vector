@@ -345,31 +345,22 @@ parseCondition = do
       Not <$> parseCondition
     _ -> do
       expr1 <- parseExpression
-      op <- parseCompOp
+      op <- parseComparisonOp
       Compare expr1 op <$> parseExpression
 
 -- | Parse a comparison operator
-parseCompOp :: Parser CompOp
-parseCompOp = do
-  current <- gets currentToken
-  case tokenKeyword current of
-    Equals -> advance >> return Eq
-    LessThen -> do
-      advance
-      hasEq <- optional $ match Equals
-      return $
-        case hasEq of
-          Just _ -> Lte
-          Nothing -> Lt
-    GreaterThen -> do
-      advance
-      hasEq <- optional $ match Equals
-      return $
-        case hasEq of
-          Just _ -> Gte
-          Nothing -> Gt
-    NotEqual -> advance >> return Neq
-    _ -> throwError $ mkError [Equals, LessThen, GreaterThen, NotEqual] current
+parseComparisonOp :: Parser CompOp
+parseComparisonOp = parseToken getComparisonOp [IsEqual, LessThen, GreaterThen, LTE, GTE, NotEqual]
+  where
+    getComparisonOp tok =
+      case tok of
+        IsEqual -> Just Eq
+        LessThen -> Just Lt
+        GreaterThen -> Just Gt
+        LTE -> Just Lte
+        GTE -> Just Gte
+        NotEqual -> Just Neq
+        _ -> Nothing
 
 -- | Parse a unary operator (+ or -) TODO eventually add transpose ' operator and evaluate if this is needed
 parseUnaryOp :: Parser UnOp

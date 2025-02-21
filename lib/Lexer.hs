@@ -236,7 +236,12 @@ operator = do
       case next of
         Just _ -> pure GTE
         Nothing -> pure GreaterThen
-    '=' -> pure Equals
+    '=' -> do
+      -- Look ahead for =
+      next <- optional (matchChar '=')
+      case next of
+        Just _ -> pure IsEqual
+        Nothing -> pure Equals -- Equals is the assignment operator, isEqual is the comparison operator
     '(' -> pure LParent
     ')' -> pure RParent
     ',' -> pure Comma

@@ -25,10 +25,16 @@ data TokenKeyword
   | NOT
   | Identifier String
   | END
-  | -- simple comparison operators
+  | -- Assignment operator
     Equals
-  | LessThen
+  | -- simple comparison operators
+    LessThen
   | GreaterThen
+  | -- compound comparison operators (less than or equal to...)
+    IsEqual
+  | LTE
+  | GTE
+  | NotEqual
   | -- syntactical elements
     LParent
   | RParent
@@ -65,10 +71,6 @@ data TokenKeyword
     -- element wise operators
     ElementMult
   | ElementDiv
-  | -- compound comparison operators (less than or equal to...)
-    LTE
-  | GTE
-  | NotEqual
   | -- logical operators
     T
   | F
