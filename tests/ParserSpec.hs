@@ -31,7 +31,7 @@ spec = do
   describe "testParseExpression" testParseExpression
   describe "testParseCondition" testParseCondition
   describe "testMatrixVectorOperations" testMatrixVectorOperations
---   describe "testComplexProgram" testComplexProgram
+  describe "testComplexProgram" testComplexProgram
 
 testParseProgram :: Spec
 testParseProgram = do
@@ -111,6 +111,19 @@ testParseConstDecls = do
       result `shouldBe` Right [
         ("I", VectorizedType (IntType Int32) [2, 2] (Just Ast.Identity),
          MatrixVal [[IntVal 1, IntVal 0], [IntVal 0, IntVal 1]])
+        ]
+
+    it "parses multiple CONST declarations with different types" $ do
+      let input = unlines [
+            "CONST INT32 x = 42;",
+            "CONST INT32 DIM(3) v = [1, 2, 3];",
+            "CONST INT32 DIM(2, 2) A = [[1, 2], [3, 4]];"
+            ]
+      let result = testParser parseConstDecls input
+      result `shouldBe` Right [
+        ("x", NumberType (IntType Int32), IntVal 42),
+        ("v", VectorizedType (IntType Int32) [3] Nothing, VectorVal [IntVal 1, IntVal 2, IntVal 3]),
+        ("A", VectorizedType (IntType Int32) [2, 2] Nothing, MatrixVal [[IntVal 1, IntVal 2], [IntVal 3, IntVal 4]])
         ]
 
 testParseVarDecls :: Spec
@@ -287,57 +300,56 @@ testMatrixVectorOperations = do
         (Factor (Parens (Binary MatrixMul (Factor (Var "A")) (Factor (Var "B")))))
         (Factor (Parens (Binary Add (Factor (Var "C")) (Factor (Var "D"))))))
 
--- testComplexProgram :: Spec
--- testComplexProgram = do
---   describe "Complex Matrix Program" $ do
---     it "parses a complete matrix manipulation program" $ do
---       let input = unlines [
---             "PROGRAM VectorOps:",
---             "  CONST INT32 DIM(3) v1 = [1, 2, 3];",
---             "  CONST INT32 DIM(3) v2 = [4, 5, 6];",
---             "  CONST INT32 DIM(2, 2) A = [[1, 2], [3, 4]];",
---             "  VAR INT32 DIM(3) result;",
---             "  VAR INT32 DIM(2, 2) B;",
---             "  PROCEDURE elementwise;",
---             "    VAR INT32 temp;",
---             "    BEGIN",
---             "      result = v1 .* v2;",
---             "      B = A .* [[2, 0], [0, 2]]",
---             "    END;",
---             "  BEGIN",
---             "    CALL elementwise;",
---             "    WRITE result;",
---             "    WRITE B",
---             "  END."
---             ]
---       let result = parse input
---       result `shouldBe` Right (Program "VectorOps" 
---         (Block 
---           [ ("v1", VectorizedType (IntType Int32) [3] Nothing,
---              VectorVal [IntVal 1, IntVal 2, IntVal 3])
---           , ("v2", VectorizedType (IntType Int32) [3] Nothing,
---              VectorVal [IntVal 4, IntVal 5, IntVal 6])
---           , ("A", VectorizedType (IntType Int32) [2, 2] Nothing,
---              MatrixVal [[IntVal 1, IntVal 2], [IntVal 3, IntVal 4]])
---           ]
---           [ ("result", VectorizedType (IntType Int32) [3] Nothing)
---           , ("B", VectorizedType (IntType Int32) [2, 2] Nothing)
---           ]
---           [Procedure "elementwise" 
---             (Block [] [] [] 
---               (Compound 
---                 [ Assignment "result" 
---                     (Binary ElementMul 
---                       (Factor (Var "v1")) 
---                       (Factor (Var "v2")))
---                 , Assignment "B"
---                     (Binary ElementMul
---                       (Factor (Var "A"))
---                       (Factor (VectorizedLit 
---                         [[Factor (IntLit 2), Factor (IntLit 0)]
---                         ,[Factor (IntLit 0), Factor (IntLit 2)]])))]))]
---           (Compound 
---             [ Call "elementwise"
---             , Write (Factor (Var "result"))
---             , Write (Factor (Var "B"))
---             ]))) 
+testComplexProgram :: Spec
+testComplexProgram = do
+  describe "Complex Matrix Program" $ do
+    it "parses a complete matrix manipulation program" $ do
+      let input = unlines [
+            "PROGRAM VectorOps:",
+            "  CONST INT32 DIM(3) vA = [1, 2, 3];",
+            "  CONST INT32 DIM(3) vB = [4, 5, 6];",
+            "  CONST INT32 DIM(2, 2) A = [[1, 2], [3, 4]];",
+            "  VAR INT32 DIM(3) result;",
+            "  VAR INT32 DIM(2, 2) B;",
+            "  PROCEDURE elementwise;",
+            "    BEGIN",
+            "      result = vA .* vB;",
+            "      B = A .* [[2, 0], [0, 2]]",
+            "    END;",
+            "  BEGIN",
+            "    CALL elementwise;",
+            "    WRITE result;",
+            "    WRITE B",
+            "  END."
+            ]
+      let result = parse input
+      result `shouldBe` Right (Program "VectorOps" 
+        (Block 
+          [ ("vA", VectorizedType (IntType Int32) [3] Nothing,
+             VectorVal [IntVal 1, IntVal 2, IntVal 3])
+          , ("vB", VectorizedType (IntType Int32) [3] Nothing,
+             VectorVal [IntVal 4, IntVal 5, IntVal 6])
+          , ("A", VectorizedType (IntType Int32) [2, 2] Nothing,
+             MatrixVal [[IntVal 1, IntVal 2], [IntVal 3, IntVal 4]])
+          ]
+          [ ("result", VectorizedType (IntType Int32) [3] Nothing)
+          , ("B", VectorizedType (IntType Int32) [2, 2] Nothing)
+          ]
+          [Procedure "elementwise" 
+            (Block [] [] [] 
+              (Compound 
+                [ Assignment "result" 
+                    (Binary ElementMul 
+                      (Factor (Var "vA")) 
+                      (Factor (Var "vB")))
+                , Assignment "B"
+                    (Binary ElementMul
+                      (Factor (Var "A"))
+                      (Factor (VectorizedLit 
+                        [[Factor (IntLit 2), Factor (IntLit 0)]
+                        ,[Factor (IntLit 0), Factor (IntLit 2)]])))]))]
+          (Compound 
+            [ Call "elementwise"
+            , Write (Factor (Var "result"))
+            , Write (Factor (Var "B"))
+            ]))) 

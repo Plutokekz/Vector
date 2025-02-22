@@ -152,23 +152,21 @@ parseBlock = do
 
 parseConstDecls :: Parser [(String, Type, Value)]
 parseConstDecls = do
-  current <- gets currentToken
-  case tokenKeyword current of
-    CONST -> do
-      advance
-      typ <- parseType
-      decls <-
-        parseSeparatedBy
-          ( do
-              name <- parseIdentifier
-              match Equals
-              val <- parseValue
-              return (name, typ, val)
-          )
-          (match Comma)
-      match SemiColon
-      return decls
-    _ -> return []
+  let parseOneConstDecl = do
+        match CONST
+        typ <- parseType
+        decls <-
+          parseSeparatedBy
+            ( do
+                name <- parseIdentifier
+                match Equals
+                val <- parseValue
+                return (name, typ, val)
+            )
+            (match Comma)
+        match SemiColon
+        return decls
+  concat <$> many parseOneConstDecl
 
 parseVarDecls :: Parser [(String, Type)]
 parseVarDecls = do

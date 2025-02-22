@@ -17,8 +17,8 @@ const Grammar = `
 Program = "PROGRAM" Name ":" Block "." .
 
 Block =
-    ["CONST" Type Name "=" Number {"," Name "=" Number} ";"]
-    ["VAR" Type Name {"," Name} ";"]
+    {"CONST" Type Name "=" Number {"," Name "=" Number} ";"}
+    {"VAR" Type Name {"," Name} ";"}
     {"PROCEDURE" Name ";" Block ";"}
     Instruction .
 
