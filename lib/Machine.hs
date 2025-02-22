@@ -219,7 +219,7 @@ genBinOp' Ast.Add = return [OPR AbstractOpCode.Add]
 genBinOp' Ast.Sub = return [OPR AbstractOpCode.Sub]
 genBinOp' Ast.Mul = return [OPR AbstractOpCode.Mul]
 genBinOp' Ast.Div = return [OPR AbstractOpCode.Div]
-genBinOp' Ast.MatrixMul = return [OPR (AbstractOpCode.MatrixMul (0, 0) (0, 0))]
+genBinOp' Ast.Mul = return [OPR (AbstractOpCode.MatrixMul (0, 0) (0, 0))]
 genBinOp' Ast.ElementMul = return [OPR AbstractOpCode.ElementMul]
 genBinOp' Ast.ElementDiv = return [OPR AbstractOpCode.ElementDiv]
 

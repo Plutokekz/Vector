@@ -207,7 +207,6 @@ operator = do
         ']',
         '.',
         ';',
-        '@',
         '\'',
         ',',
         ':',
@@ -249,7 +248,6 @@ operator = do
     ']' -> pure RBracket
     ';' -> pure SemiColon
     ':' -> pure Colon
-    '@' -> pure MatrixMult
     '\'' -> pure Transpose
     '+' -> pure Plus
     '-' -> pure Minus

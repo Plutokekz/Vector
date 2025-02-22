@@ -8,5 +8,5 @@ PROGRAM matrix:
     B = [[1, 0, 0],
          [0, 1, 0],
          [0, 0, 1]];
-    WRITE A @ B
+    WRITE A * B
   END.

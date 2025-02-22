@@ -67,8 +67,7 @@ data TokenKeyword
   | LowerTriangular
   | UpperTriangular
   | -- simple matrix operators
-    MatrixMult
-  | Transpose
+   Transpose
   | -- compound operators
     -- element wise operators
     ElementMult

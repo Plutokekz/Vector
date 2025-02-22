@@ -516,11 +516,10 @@ parseMulOp = parseToken getMulOp [Times, Divide]
 -- | Parse a matrix operator
 parseMatrixOp :: Parser BinOp
 parseMatrixOp =
-  parseToken getOp [MatrixMult, Token.ElementMult, Token.ElementDiv]
+  parseToken getOp [Token.ElementMult, Token.ElementDiv]
   where
     getOp tok =
       case tok of
-        MatrixMult -> Just MatrixMul
         Token.ElementMult -> Just Ast.ElementMul
         Token.ElementDiv -> Just Ast.ElementDiv
         _ -> Nothing

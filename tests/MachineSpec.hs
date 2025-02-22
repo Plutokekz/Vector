@@ -115,7 +115,7 @@ testGenExpression = do
       nameCounter finalState `shouldBe` 0
       codeCounter finalState `shouldBe` 1
     it "generates correct instructions for MatrixMul" $ do
-      let programm = Ast.MatrixMul
+      let programm = Ast.Mul
       let (instructions, finalState) = runCompilerWithState (genBinOp programm)
 
       instructions `shouldBe` [OPR (MatrixMul (0, 0) (0, 0))]
@@ -277,7 +277,7 @@ testGenExpression = do
     it "generates correct instructions for matrix multiplication" $ do
       let expr =
             Ast.Binary
-              Ast.MatrixMul
+              Ast.Mul
               (Ast.Factor (Ast.Var "m1"))
               (Ast.Factor (Ast.Var "m2"))
       let initialStateWithMatrix =

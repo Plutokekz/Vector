@@ -40,7 +40,6 @@ data BinOp
   | Sub
   | Mul
   | Div
-  | MatrixMul -- @ operator
   | ElementMul -- .* operator
   | ElementDiv -- ./ operator
   deriving (Show, Eq)

@@ -294,9 +294,9 @@ testMatrixVectorOperations :: Spec
 testMatrixVectorOperations = do
   describe "Matrix and Vector Operations" $ do
     it "parses matrix multiplication" $ do
-      let input = "A @ B"
+      let input = "A * B"
       let result = testParser parseExpression input
-      result `shouldBe` Right (Binary MatrixMul (Factor (Var "A")) (Factor (Var "B")))
+      result `shouldBe` Right (Binary Mul (Factor (Var "A")) (Factor (Var "B")))
 
     it "parses element-wise matrix multiplication" $ do
       let input = "A .* B"
@@ -323,13 +323,13 @@ testMatrixVectorOperations = do
           )
 
     it "parses complex matrix expression" $ do
-      let input = "(A @ B) .* (C + D)"
+      let input = "(A * B) .* (C + D)"
       let result = testParser parseExpression input
       result
         `shouldBe` Right
           ( Binary
               ElementMul
-              (Factor (Parens (Binary MatrixMul (Factor (Var "A")) (Factor (Var "B")))))
+              (Factor (Parens (Binary Mul (Factor (Var "A")) (Factor (Var "B")))))
               (Factor (Parens (Binary Add (Factor (Var "C")) (Factor (Var "D")))))
           )
 

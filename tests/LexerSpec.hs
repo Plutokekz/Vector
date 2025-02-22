@@ -155,8 +155,6 @@ testOperator = do
       runLexer operator ";" 0 `shouldBe` Right (1, SemiColon, "")
     it "returns Colon token" $ do
       runLexer operator ":" 0 `shouldBe` Right (1, Colon, "")
-    it "returns MatrixMult token" $ do
-      runLexer operator "@" 0 `shouldBe` Right (1, MatrixMult, "")
     it "returns Transpose token" $ do
       runLexer operator "\'" 0 `shouldBe` Right (1, Transpose, "")
 
