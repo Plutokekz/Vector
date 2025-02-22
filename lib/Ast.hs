@@ -10,6 +10,7 @@ data Block = Block
     instruction :: Statement
   }
   deriving (Show, Eq)
+
 data Procedure = Procedure String Block deriving (Show, Eq)
 
 data Statement
@@ -66,11 +67,11 @@ data Type
 
 data NumberType = IntType IntType | FloatType FloatType deriving (Show, Eq)
 
-data IntType = Int8 | Int16 | Int32 | Int64 | Int128 deriving (Show, Eq)
+data IntType = Int8 | Int16 | Int32 | Int64 | Int128 deriving (Show, Eq, Ord)
 
-type Dimensions = [Integer]
+type Dimensions = (Integer, Integer)
 
-data FloatType = Float8 | Float16 | Float32 | Float64 | Float128 deriving (Show, Eq)
+data FloatType = Float8 | Float16 | Float32 | Float64 | Float128 deriving (Show, Eq, Ord)
 
 data Specifier
   = Sparse

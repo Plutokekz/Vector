@@ -127,8 +127,6 @@ generateAssemblyInstructions (OPR Not) = do
       "sd t0, 0(sp)" -- Store result (no stack adjustment needed)
     ]
 generateAssemblyInstructions (OPR (MatrixMul _ _)) = error "Not Implemented"
-generateAssemblyInstructions (OPR ElementMul) = error "Not Implemented"
-generateAssemblyInstructions (OPR ElementDiv) = error "Not Implemented"
 generateAssemblyInstructions (LITF value) = error "Not Implemented"
 generateAssemblyInstructions (LITI value) = do
   modify (\s -> s {opCodesPersInstruction = opCodesPersInstruction s ++ [3]})

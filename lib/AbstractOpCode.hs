@@ -1,15 +1,15 @@
 module AbstractOpCode where
 
+import Ast qualified
 import Control.Monad.State.Lazy
 import Data.Map (Map)
 import Data.Map qualified as Map
-import qualified Ast
 
 data Instruction
   = RST
   | LOD Integer Integer
   | STO Integer Integer
-  | LODN Integer Integer  -- Load n bytes from stack
+  | LODN Integer Integer -- Load n bytes from stack
   | STON Integer Integer Integer -- store n bytes on the stack
   | INC Integer
   | LITI Integer -- Load imidieate integer
@@ -38,11 +38,33 @@ data Operator
   | Gte
   | Not
   | MatrixMul Dimension Dimension
-  | ElementMul
-  | ElementDiv
+  | MatrixAdd Dimension Dimension
+  | MatrixSub Dimension Dimension
+  | MatrixDiv Dimension Dimension
+  | MatrixDivScalar Dimension
+  | MatrixAddScalar Dimension
+  | MatrixMulScalar Dimension
+  | MatrixSubScalar Dimension
+  | ScalarDivMatrix Dimension
+  | ScalarAddMatrix Dimension
+  | ScalarMulMatrix Dimension
+  | ScalarSubMatrix Dimension
+  | VectorMul Length
+  | VectorAdd Length
+  | VectorSub Length
+  | VectorDiv Length
+  | VectorAddScalar Length
+  | VectorMulScalar Length
+  | VectorDivScalar Length
+  | VectorSubScalar Length
+  | ScalarAddVector Length
+  | ScalarMulVector Length
+  | ScalarDivVector Length
+  | ScalarSubVector Length
   deriving (Show, Eq)
 
-type Dimension = (Int, Int)
+type Dimension = (Integer, Integer)
+type Length = Integer
 
 data TableEntry
   = VariableEntry {depth :: Integer, nameCount :: Integer, variabbleType :: Ast.Type}

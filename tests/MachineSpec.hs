@@ -43,7 +43,7 @@ testGenVaribles = do
       codeCounter finalState `shouldBe` 0
   describe "Test Variables declaration" $ do
     it "generates correct instructions for a list of variables" $ do
-      let programm = [("x", Ast.NumberType $ Ast.IntType Ast.Int8), ("y", Ast.NumberType $ Ast.FloatType Ast.Float128), ("z", Ast.NumberType $ Ast.IntType Ast.Int64), ("A", Ast.VectorizedType (Ast.IntType Ast.Int8) [64, 64] Nothing), ("B", Ast.NumberType $ Ast.FloatType Ast.Float128)]
+      let programm = [("x", Ast.NumberType $ Ast.IntType Ast.Int8), ("y", Ast.NumberType $ Ast.FloatType Ast.Float128), ("z", Ast.NumberType $ Ast.IntType Ast.Int64), ("A", Ast.VectorizedType (Ast.IntType Ast.Int8) (64, 64) Nothing), ("B", Ast.NumberType $ Ast.FloatType Ast.Float128)]
       let (instructions, finalState) = runCompilerWithState (genVariables programm)
 
       instructions `shouldBe` [INC 5]
@@ -77,70 +77,6 @@ testGenConstants = do
 
 testGenExpression :: Spec
 testGenExpression = do
-  describe "Test Binary Operation generation" $ do
-    it "generates correct instructions for Add" $ do
-      let programm = Ast.Add
-      let (instructions, finalState) = runCompilerWithState (genBinOp programm)
-
-      instructions `shouldBe` [OPR Add]
-
-      depthCounter finalState `shouldBe` 0
-      nameCounter finalState `shouldBe` 0
-      codeCounter finalState `shouldBe` 1
-    it "generates correct instructions for Sub" $ do
-      let programm = Ast.Sub
-      let (instructions, finalState) = runCompilerWithState (genBinOp programm)
-
-      instructions `shouldBe` [OPR Sub]
-
-      depthCounter finalState `shouldBe` 0
-      nameCounter finalState `shouldBe` 0
-      codeCounter finalState `shouldBe` 1
-    it "generates correct instructions for Mul" $ do
-      let programm = Ast.Mul
-      let (instructions, finalState) = runCompilerWithState (genBinOp programm)
-
-      instructions `shouldBe` [OPR Mul]
-
-      depthCounter finalState `shouldBe` 0
-      nameCounter finalState `shouldBe` 0
-      codeCounter finalState `shouldBe` 1
-    it "generates correct instructions for Div" $ do
-      let programm = Ast.Div
-      let (instructions, finalState) = runCompilerWithState (genBinOp programm)
-
-      instructions `shouldBe` [OPR Div]
-
-      depthCounter finalState `shouldBe` 0
-      nameCounter finalState `shouldBe` 0
-      codeCounter finalState `shouldBe` 1
-    it "generates correct instructions for MatrixMul" $ do
-      let programm = Ast.Mul
-      let (instructions, finalState) = runCompilerWithState (genBinOp programm)
-
-      instructions `shouldBe` [OPR (MatrixMul (0, 0) (0, 0))]
-
-      depthCounter finalState `shouldBe` 0
-      nameCounter finalState `shouldBe` 0
-      codeCounter finalState `shouldBe` 1
-    it "generates correct instructions for ElementMul" $ do
-      let programm = Ast.ElementMul
-      let (instructions, finalState) = runCompilerWithState (genBinOp programm)
-
-      instructions `shouldBe` [OPR ElementMul]
-
-      depthCounter finalState `shouldBe` 0
-      nameCounter finalState `shouldBe` 0
-      codeCounter finalState `shouldBe` 1
-    it "generates correct instructions for ElementDiv" $ do
-      let programm = Ast.ElementDiv
-      let (instructions, finalState) = runCompilerWithState (genBinOp programm)
-
-      instructions `shouldBe` [OPR ElementDiv]
-
-      depthCounter finalState `shouldBe` 0
-      nameCounter finalState `shouldBe` 0
-      codeCounter finalState `shouldBe` 1
   describe "Test Unary Operation generation" $ do
     it "generates correct instructions for Neg" $ do
       let op = Ast.Neg
@@ -288,8 +224,8 @@ testGenExpression = do
                 labelCounter = 0,
                 symbolTable =
                   Map.fromList
-                    [ ("m1", VariableEntry {depth = 0, nameCount = 3, variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) [10, 10] Nothing}),
-                      ("m2", VariableEntry {depth = 0, nameCount = 4, variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) [10, 10] Nothing})
+                    [ ("m1", VariableEntry {depth = 0, nameCount = 3, variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) (10, 10) Nothing}),
+                      ("m2", VariableEntry {depth = 0, nameCount = 4, variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) (10, 10) Nothing})
                     ]
               }
       let ((_, instructions), finalState) = runState (genExpr expr) initialStateWithMatrix

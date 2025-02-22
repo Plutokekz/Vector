@@ -169,14 +169,79 @@ genStatement (While condition statement) = do
   -- Return the complete instruction sequence
   return $ [LAB startLabel] ++ condCode ++ [JOF endLabel] ++ stmtCode ++ [JMP startLabel, LAB endLabel]
 
+resultType :: Type -> BinOp -> Type -> Compiler (Type, Instruction)
+resultType (NumberType (IntType Int64)) op (NumberType (IntType Int64)) = do
+  return (NumberType (IntType Int64), OPR AbstractOpCode.Add)
+-- Int64 op Vector / Matrix
+resultType (NumberType (IntType Int64)) op (VectorizedType (IntType Int64) dim spec) = do
+  case (op, dim) of
+    (Ast.Add, (1, l)) -> return (VectorizedType (IntType Int64) (1, l) spec, OPR (ScalarAddVector l))
+    (Ast.Sub, (1, l)) -> return (VectorizedType (IntType Int64) (1, l) spec, OPR (ScalarSubVector l))
+    (Ast.Div, (1, l)) -> return (VectorizedType (IntType Int64) (1, l) spec, OPR (ScalarDivVector l))
+    (Ast.Mul, (1, l)) -> return (VectorizedType (IntType Int64) (1, l) spec, OPR (ScalarMulVector l))
+    (Ast.Add, dim) -> return (VectorizedType (IntType Int64) dim spec, OPR (ScalarAddMatrix dim))
+    (Ast.Sub, dim) -> return (VectorizedType (IntType Int64) dim spec, OPR (ScalarSubMatrix dim))
+    (Ast.Div, dim) -> return (VectorizedType (IntType Int64) dim spec, OPR (ScalarDivMatrix dim))
+    (Ast.Mul, dim) -> return (VectorizedType (IntType Int64) dim spec, OPR (ScalarMulMatrix dim))
+-- Vector / Matrix op Int64
+resultType (VectorizedType (IntType Int64) dim spec) op (NumberType (IntType Int64)) = do
+  case (op, dim) of
+    (Ast.Add, (1, l)) -> return (VectorizedType (IntType Int64) (1, l) spec, OPR (VectorAddScalar l))
+    (Ast.Sub, (1, l)) -> return (VectorizedType (IntType Int64) (1, l) spec, OPR (VectorSubScalar l))
+    (Ast.Div, (1, l)) -> return (VectorizedType (IntType Int64) (1, l) spec, OPR (VectorDivScalar l))
+    (Ast.Mul, (1, l)) -> return (VectorizedType (IntType Int64) (1, l) spec, OPR (VectorMulScalar l))
+    (Ast.Add, dim) -> return (VectorizedType (IntType Int64) dim spec, OPR (MatrixAddScalar dim))
+    (Ast.Sub, dim) -> return (VectorizedType (IntType Int64) dim spec, OPR (MatrixSubScalar dim))
+    (Ast.Div, dim) -> return (VectorizedType (IntType Int64) dim spec, OPR (MatrixDivScalar dim))
+    (Ast.Mul, dim) -> return (VectorizedType (IntType Int64) dim spec, OPR (MatrixMulScalar dim))
+resultType (VectorizedType (IntType Int64) dim1 spec1) op (VectorizedType (IntType Int64) dim2 spec2) = do
+  case op of
+    Ast.Mul -> do
+      let (w1, h1) = dim1
+      let (w2, h2) = dim2
+      -- Vector Vector mul
+      if (w1 == 1) && (w2 == 1)
+        then do
+          when (h1 /= h1) $ do
+            error $ "Connot Multiplay Vectors with diffrent lengths: " ++ show h1 ++ "!=" ++ show h2
+          return (VectorizedType (IntType Int64) (w1, h2) spec1, OPR (VectorMul h1))
+        else do
+          -- Vector Matrix and Matrix Matrix mul
+          when (h1 /= w2) $ do
+            error $ "Can not multiply " ++ show dim1 ++ " by " ++ show dim2 ++ ". " ++ show h1 ++ "!=" ++ show h2
+          return (VectorizedType (IntType Int64) (w1, h2) spec1, OPR (AbstractOpCode.MatrixMul dim1 dim2))
+    -- Add Sub Div
+    op -> do
+      let (w1, h1) = dim1
+      let (w2, h2) = dim2
+      when ((h1 /= h2) || (w1 /= w2)) $ do
+        error $ "Can not do " ++ show op ++ " when " ++ show h1 ++ "/=" ++ show h2 ++ " or " ++ show w1 ++ "/=" ++ show w2
+      if h1 == 1
+        then do
+          let opInstruction = matchVectorOperation op h1
+          return (VectorizedType (IntType Int64) (w1, h1) spec1, opInstruction)
+        else do
+          let opInstruction = matchMatrixOperation op dim1
+          return (VectorizedType (IntType Int64) (w1, h1) spec1, opInstruction)
+resultType type1 op type2 = error $ show type1 ++ show op ++ show type2 ++ " Not implemented or not supported"
+
+matchVectorOperation :: BinOp -> Integer -> Instruction
+matchVectorOperation Ast.Add l = OPR (AbstractOpCode.VectorAdd l)
+matchVectorOperation Ast.Sub l = OPR (AbstractOpCode.VectorSub l)
+matchVectorOperation Ast.Div l = OPR (AbstractOpCode.VectorDiv l)
+
+matchMatrixOperation :: BinOp -> (Integer, Integer) -> Instruction
+matchMatrixOperation Ast.Add d = OPR (AbstractOpCode.MatrixAdd d d)
+matchMatrixOperation Ast.Sub d = OPR (AbstractOpCode.MatrixSub d d)
+matchMatrixOperation Ast.Div d = OPR (AbstractOpCode.MatrixDiv d d)
+
 genExpr :: Expression -> Compiler (Type, [Instruction])
 genExpr (Binary op expr1 expr2) = do
   (type1, expr1Code) <- genExpr expr1
   (type2, expr2Code) <- genExpr expr2
-  when (type1 /= type2) $ do
-    error $ "Wrong Type: " ++ show type1 ++ " != " ++ show type2
-  codeOp <- genBinOp op
-  return (type1, expr1Code ++ expr2Code ++ codeOp)
+  (type1, opInstruction) <- resultType type1 op type2
+  modify $ \s -> s {codeCounter = codeCounter s + 1}
+  return (type1, expr1Code ++ expr2Code ++ [opInstruction])
 genExpr (Unary op expr) = genUnary op expr
 genExpr (Factor factor) = genFactor factor
 
@@ -208,20 +273,6 @@ genUnary op expr = do
       -- TODO: Add right instruction for types?
       -- Expressions need a type
       return (type1, [LITI 0] ++ exprCode ++ [OPR AbstractOpCode.Not])
-
-genBinOp :: BinOp -> Compiler [Instruction]
-genBinOp op = do
-  modify $ \s -> s {codeCounter = codeCounter s + 1}
-  genBinOp' op
-
-genBinOp' :: BinOp -> Compiler [Instruction]
-genBinOp' Ast.Add = return [OPR AbstractOpCode.Add]
-genBinOp' Ast.Sub = return [OPR AbstractOpCode.Sub]
-genBinOp' Ast.Mul = return [OPR AbstractOpCode.Mul]
-genBinOp' Ast.Div = return [OPR AbstractOpCode.Div]
-genBinOp' Ast.Mul = return [OPR (AbstractOpCode.MatrixMul (0, 0) (0, 0))]
-genBinOp' Ast.ElementMul = return [OPR AbstractOpCode.ElementMul]
-genBinOp' Ast.ElementDiv = return [OPR AbstractOpCode.ElementDiv]
 
 genCondition :: Condition -> Compiler [Instruction]
 genCondition (Ast.Compare expr1 compOp expr2) = do

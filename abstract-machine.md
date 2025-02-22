@@ -63,8 +63,8 @@ MV has four registers, one instruction registers and four address registers.
 * One Instruction register $I$
 * three address register
     * $P$ (Program counter, a code address)
-    * $T$ (Top of stack, a store address)
-    * $B$ (base of the current segment, a store address)
+    * $T$ (Top of stack, a store address) sp 
+    * $B$ (base of the current segment, a store address) fp 
 
 Instructions can modify the program counter $P$, $P$ holds store address to the following instructions that should be executed. $I$ contains, the instructions that are currently executed. 
 
@@ -200,8 +200,7 @@ $$ \text{store}[T-1] := (\text{store}[T-1] / \text{store}[T]);\\ T := T-1$$
 
 * OPR .*:
 
-$$ \text{store}[T-1] := (\text{store}[T-1] \text{ ElementMult } \text{store}[T]);
-\\ T := T-1 $$
+$$ \text{store}[T-1] := (\text{store}[T-1] \text{ ElementMult } \text{store}[T]);\\ T := T-1 $$
 
 * OPR ./:
 

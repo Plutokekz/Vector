@@ -112,7 +112,7 @@ testParseConstDecls = do
       result
         `shouldBe` Right
           [ ( "m",
-              VectorizedType (IntType Int32) [2, 2] Nothing,
+              VectorizedType (IntType Int32) (2, 2) Nothing,
               MatrixVal [[IntVal 1, IntVal 2], [IntVal 3, IntVal 4]]
             )
           ]
@@ -123,7 +123,7 @@ testParseConstDecls = do
       result
         `shouldBe` Right
           [ ( "I",
-              VectorizedType (IntType Int32) [2, 2] (Just Ast.Identity),
+              VectorizedType (IntType Int32) (2, 2) (Just Ast.Identity),
               MatrixVal [[IntVal 1, IntVal 0], [IntVal 0, IntVal 1]]
             )
           ]
@@ -171,12 +171,12 @@ testParseType = do
     it "parses vector types" $ do
       let input = "INT32 DIM(10, 20)"
       let result = testParser parseType input
-      result `shouldBe` Right (VectorizedType (IntType Int32) [10, 20] Nothing)
+      result `shouldBe` Right (VectorizedType (IntType Int32) (10, 20) Nothing)
 
     it "parses vector types with specifier" $ do
       let input = "INT32 DIM(10, 10) Identity"
       let result = testParser parseType input
-      result `shouldBe` Right (VectorizedType (IntType Int32) [10, 10] (Just Ast.Identity))
+      result `shouldBe` Right (VectorizedType (IntType Int32) (10, 10) (Just Ast.Identity))
 
 testParseProcDecls :: Spec
 testParseProcDecls = do
@@ -371,7 +371,7 @@ testComplexProgram = do
                       MatrixVal [[IntVal 4, IntVal 5, IntVal 6]]
                     ),
                     ( "A",
-                      VectorizedType (IntType Int32) [2, 2] Nothing,
+                      VectorizedType (IntType Int32) (2, 2) Nothing,
                       MatrixVal [[IntVal 1, IntVal 2], [IntVal 3, IntVal 4]]
                     )
                   ]
