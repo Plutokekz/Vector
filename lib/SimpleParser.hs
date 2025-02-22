@@ -200,7 +200,11 @@ parseType = do
       dims <- parseNumber `parseSeparatedBy` match Comma
       match RParent
       spec <- optional parseSpecifier
-      return $ VectorizedType numType dims spec
+      -- Convert single dimension to two dimensions [n] -> [1,n]
+      let adjustedDims = case dims of
+            [n] -> [1, n]  -- Convert vector dimension to 1×n matrix
+            _ -> dims
+      return $ VectorizedType numType adjustedDims spec
     -- If there are no brackets, it's a simple number type
     _ -> return $ NumberType numType
 
@@ -298,15 +302,17 @@ parseVectorizedValue = do
       current' <- gets currentToken
       case tokenKeyword current' of
         LBracket -> parseMatrixValue -- [[...], [...]]
-        _ -> parseVectorValue -- [...]
+        _ -> parseVectorAsMatrixValue -- [...]
     _ -> throwError $ mkError [LBracket] current
 
-parseVectorValue :: Parser Value
-parseVectorValue = do
+-- | Parse a vector as a single-row matrix [1,2,3] -> [[1,2,3]]
+parseVectorAsMatrixValue :: Parser Value
+parseVectorAsMatrixValue = do
   elements <- parseValue `parseSeparatedBy` match Comma
   match RBracket
-  return $ VectorVal elements
+  return $ MatrixVal [elements]  -- Wrap in single row
 
+-- | Parse a full matrix value
 parseMatrixValue :: Parser Value
 parseMatrixValue = do
   advance -- consume the second [
@@ -320,6 +326,28 @@ parseMatrixValue = do
     return row
   match RBracket
   return $ MatrixVal (row1 : rows)
+
+-- | Parse a vector literal as a single-row matrix
+parseVectorLiteral :: Parser Expression
+parseVectorLiteral = do
+  elements <- parseExpression `parseSeparatedBy` match Comma
+  match RBracket
+  return $ Factor $ VectorizedLit [elements]  -- Wrap in single row
+
+-- | Parse a matrix literal
+parseMatrixLiteral :: Parser Expression
+parseMatrixLiteral = do
+  advance -- consume the second [
+  row1 <- parseExpression `parseSeparatedBy` match Comma
+  match RBracket
+  rows <- many $ do
+    match Comma
+    match LBracket
+    row <- parseExpression `parseSeparatedBy` match Comma
+    match RBracket
+    return row
+  match RBracket
+  return $ Factor $ VectorizedLit (row1 : rows)
 
 -- | Parse a number token
 parseNumber :: Parser Integer
@@ -470,28 +498,6 @@ parseFactor = do
         mkError
           [LParent, LBracket, INumber 0, FNumber 0.0, Identifier ""]
           current
-
--- | Parse a vector literal [x1, x2, ..., xn]
-parseVectorLiteral :: Parser Expression
-parseVectorLiteral = do
-  elements <- parseExpression `parseSeparatedBy` match Comma
-  match RBracket
-  return $ Factor $ VectorizedLit [elements]
-
--- | Parse a matrix literal [[x11, x12], [x21, x22], ...]
-parseMatrixLiteral :: Parser Expression
-parseMatrixLiteral = do
-  advance -- consume the second [
-  row1 <- parseExpression `parseSeparatedBy` match Comma
-  match RBracket
-  rows <- many $ do
-    match Comma
-    match LBracket
-    row <- parseExpression `parseSeparatedBy` match Comma
-    match RBracket
-    return row
-  match RBracket
-  return $ Factor $ VectorizedLit (row1 : rows)
 
 -- | Parse an additive operator
 parseAddOp :: Parser BinOp

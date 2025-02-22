@@ -84,6 +84,5 @@ data Specifier
 data Value
   = IntVal Integer
   | FloatVal Double
-  | VectorVal [Value] -- For vectors: [a, b, c]
-  | MatrixVal [[Value]] -- For matrices: [[a, b], [c, d]]
+  | MatrixVal [[Value]]
   deriving (Show, Eq)
