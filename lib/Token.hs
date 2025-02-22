@@ -44,6 +44,8 @@ data TokenKeyword
   | Comma
   | LBracket
   | RBracket
+  | -- required to specify matrix dimensions
+    DIM
   | -- number types
     INT8
   | INT16

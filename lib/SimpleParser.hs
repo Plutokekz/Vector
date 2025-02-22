@@ -193,13 +193,14 @@ parseType = do
   -- First parse the base number type
   numType <- parseNumberType
 
-  -- Check for brackets,dimensions and a specifier, corresponding to a vectorized type
+  -- Check for dimensions and a specifier, corresponding to a vectorized type
   current <- gets currentToken
   case tokenKeyword current of
-    LBracket -> do
-      match LBracket
+    Identifier "DIM" -> do
+      advance
+      match LParent
       dims <- parseNumber `parseSeparatedBy` match Comma
-      match RBracket
+      match RParent
       spec <- optional parseSpecifier
       return $ VectorizedType numType dims spec
     -- If there are no brackets, it's a simple number type
@@ -410,21 +411,12 @@ parseFactor = do
       match RParent
       return $ Factor $ Parens expr
     LBracket -> do
-      -- Handle matrix literals
+      -- Handle vector and matrix literals
       advance
-      match LBracket -- Expect second opening bracket
-      -- Parse first row
-      row1 <- parseMatrixRow
-      match RBracket -- Close first row
-      rows <-
-        many $ do
-          match Comma
-          match LBracket
-          row <- parseMatrixRow
-          match RBracket
-          return row
-      match RBracket -- Close outer bracket
-      return $ Factor $ MatrixLit (row1 : rows)
+      current' <- gets currentToken
+      case tokenKeyword current' of
+        LBracket -> parseMatrixLiteral  -- If we see [[, it's a matrix
+        _ -> parseVectorLiteral         -- Otherwise it's a vector
     INumber n -> advance >> return (Factor $ IntLit n)
     FNumber n -> advance >> return (Factor $ FloatLit n)
     Identifier name -> do
@@ -438,7 +430,7 @@ parseFactor = do
           match Comma
           idx2 <- parseExpression
           match RBracket
-          return $ Factor $ MatrixIndex name (idx1, idx2)
+          return $ Factor $ VectorizedIndex name (idx1, idx2)
         _ -> return $ Factor $ Var name
     _ ->
       throwError $
@@ -446,15 +438,27 @@ parseFactor = do
           [LParent, LBracket, INumber 0, FNumber 0.0, Identifier ""]
           current
 
--- | Parse a matrix row
-parseMatrixRow :: Parser [Expression]
-parseMatrixRow = do
-  expr <- parseExpression
-  rest <-
-    many $ do
-      match Comma
-      parseExpression
-  return (expr : rest)
+-- | Parse a vector literal [x1, x2, ..., xn]
+parseVectorLiteral :: Parser Expression
+parseVectorLiteral = do
+  elements <- parseExpression `parseSeparatedBy` match Comma
+  match RBracket
+  return $ Factor $ VectorizedLit [elements]
+
+-- | Parse a matrix literal [[x11, x12], [x21, x22], ...]
+parseMatrixLiteral :: Parser Expression
+parseMatrixLiteral = do
+  advance  -- consume the second [
+  row1 <- parseExpression `parseSeparatedBy` match Comma
+  match RBracket
+  rows <- many $ do
+    match Comma
+    match LBracket
+    row <- parseExpression `parseSeparatedBy` match Comma
+    match RBracket
+    return row
+  match RBracket
+  return $ Factor $ VectorizedLit (row1 : rows)
 
 -- | Parse an additive operator
 parseAddOp :: Parser BinOp

@@ -1,7 +1,7 @@
 module Ast where
 
 -- | AST types that match the grammar
-data Program = Program String Block deriving (Show)
+data Program = Program String Block deriving (Show, Eq)
 
 data Block = Block
   { constDecls :: [(String, Type, Value)],
@@ -9,9 +9,9 @@ data Block = Block
     procedures :: [Procedure],
     instruction :: Statement
   }
-  deriving (Show)
+  deriving (Show, Eq)
 
-data Procedure = Procedure String Block deriving (Show)
+data Procedure = Procedure String Block deriving (Show, Eq)
 
 data Statement
   = Assignment String Expression
@@ -21,20 +21,20 @@ data Statement
   | Compound [Statement]
   | If Condition Statement
   | While Condition Statement
-  deriving (Show)
+  deriving (Show, Eq)
 
 data Condition
   = Compare Expression CompOp Expression
   | Not Condition
-  deriving (Show)
+  deriving (Show, Eq)
 
-data CompOp = Eq | Lt | Gt | Lte | Gte | Neq deriving (Show)
+data CompOp = Eq | Lt | Gt | Lte | Gte | Neq deriving (Show, Eq)
 
 data Expression
   = Binary BinOp Expression Expression
   | Unary UnOp Expression
   | Factor Factor
-  deriving (Show)
+  deriving (Show, Eq)
 
 data BinOp
   = Add
@@ -44,18 +44,18 @@ data BinOp
   | MatrixMul -- @ operator
   | ElementMul -- .* operator
   | ElementDiv -- ./ operator
-  deriving (Show)
+  deriving (Show, Eq)
 
-data UnOp = Pos | Neg deriving (Show)
+data UnOp = Pos | Neg deriving (Show, Eq)
 
 data Factor
   = Var String
   | IntLit Integer
   | FloatLit Double
   | Parens Expression
-  | MatrixLit [[Expression]]
-  | MatrixIndex String (Expression, Expression) -- Add support for matrix indexing
-  deriving (Show)
+  | VectorizedLit [[Expression]]
+  | VectorizedIndex String (Expression, Expression) -- Add support for matrix indexing
+  deriving (Show, Eq)
 
 data Type
   = NumberType NumberType
@@ -83,4 +83,4 @@ data Specifier
   | Orthogonal
   deriving (Show, Eq)
 
-data Value = IntVal Integer | FloatVal Double deriving (Show)
+data Value = IntVal Integer | FloatVal Double deriving (Show, Eq)
