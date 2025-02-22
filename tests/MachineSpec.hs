@@ -25,7 +25,7 @@ testProgramm = do
       let programm = Ast.Program "Test" (Ast.Block [] [] [] (Ast.Write (Ast.Factor (Ast.IntLit 1))))
       let (_, finalState) = runCompilerWithState (genProgramm programm)
 
-      -- instructions `shouldBe` [RST, LITI 1, WRI]
+      -- instructions `shouldBe` [RST, LIT 1, WRI]
 
       depthCounter finalState `shouldBe` 0 -- Should be back to 0 after exiting block
       nameCounter finalState `shouldBe` 3 -- Should still be 3 since no variables declared
@@ -54,26 +54,16 @@ testGenVaribles = do
 
 testGenConstants :: Spec
 testGenConstants = do
-  describe "Test single constant declaration" $ do
-    it "generates correct instructions for x float128" $ do
-      let programm = ("x", Ast.NumberType $ Ast.FloatType Ast.Float128, Ast.FloatVal 99.012)
-      let (instructions, finalState) = runCompilerWithState (genConstant programm)
+  describe "Test constants declaration" $ do
+    it "generates correct instructions for list of constants" $ do
+      let programm = [("x", Ast.NumberType $ Ast.IntType Ast.Int8, Ast.IntVal 200)]
+      let (instructions, finalState) = runCompilerWithState (genConstants programm)
 
-      instructions `shouldBe` [LITF 99.012, STO 0 0]
+      instructions `shouldBe` [INC 1, LIT 200, STO 0 0]
 
       depthCounter finalState `shouldBe` 0
       nameCounter finalState `shouldBe` 1
-      codeCounter finalState `shouldBe` 2
-  describe "Test constants declaration" $ do
-    it "generates correct instructions for list of constants" $ do
-      let programm = [("x", Ast.NumberType $ Ast.IntType Ast.Int8, Ast.IntVal 200), ("y", Ast.NumberType $ Ast.FloatType Ast.Float128, Ast.FloatVal 99.012), ("z", Ast.NumberType $ Ast.IntType Ast.Int64, Ast.IntVal 999912)]
-      let (instructions, finalState) = runCompilerWithState (genConstants programm)
-
-      instructions `shouldBe` [INC 3, LITI 200, STO 0 0, LITF 99.012, STO 0 1, LITI 999912, STO 0 2]
-
-      depthCounter finalState `shouldBe` 0
-      nameCounter finalState `shouldBe` 3
-      codeCounter finalState `shouldBe` 7
+      codeCounter finalState `shouldBe` 3
 
 testGenExpression :: Spec
 testGenExpression = do
@@ -94,7 +84,7 @@ testGenExpression = do
 
       let ((_, instructions), finalState) = runState (genUnary op expr) initialStateWithX
 
-      instructions `shouldBe` [LITI 0, LOD 0 0, OPR Not]
+      instructions `shouldBe` [LIT 0, LOD 0 0, OPR Sub]
 
       depthCounter finalState `shouldBe` 0
       nameCounter finalState `shouldBe` 1
@@ -133,13 +123,7 @@ testGenExpression = do
     it "generates correct instructions for integer literal" $ do
       let expr = Ast.Factor (Ast.IntLit 42)
       let ((_, instructions), finalState) = runState (genExpr expr) initialState
-      instructions `shouldBe` [LITI 42]
-      codeCounter finalState `shouldBe` 1
-
-    it "generates correct instructions for float literal" $ do
-      let expr = Ast.Factor (Ast.FloatLit 3.14)
-      let ((_, instructions), finalState) = runState (genExpr expr) initialState
-      instructions `shouldBe` [LITF 3.14]
+      instructions `shouldBe` [LIT 42]
       codeCounter finalState `shouldBe` 1
 
     it "generates correct instructions for variable access" $ do
@@ -159,7 +143,7 @@ testGenExpression = do
     it "generates correct instructions for negation" $ do
       let expr = Ast.Unary Ast.Neg (Ast.Factor (Ast.IntLit 5))
       let ((_, instructions), finalState) = runState (genExpr expr) initialState
-      instructions `shouldBe` [LITI 0, LITI 5, OPR Not]
+      instructions `shouldBe` [LIT 0, LIT 5, OPR Sub]
       codeCounter finalState `shouldBe` 3
 
     it "generates correct instructions for addition" $ do
@@ -169,7 +153,7 @@ testGenExpression = do
               (Ast.Factor (Ast.IntLit 2))
               (Ast.Factor (Ast.IntLit 3))
       let ((_, instructions), finalState) = runState (genExpr expr) initialState
-      instructions `shouldBe` [LITI 2, LITI 3, OPR Add]
+      instructions `shouldBe` [LIT 2, LIT 3, OPR Add]
       codeCounter finalState `shouldBe` 3
 
     it "generates correct instructions for multiplication" $ do
@@ -179,7 +163,7 @@ testGenExpression = do
               (Ast.Factor (Ast.IntLit 4))
               (Ast.Factor (Ast.IntLit 5))
       let ((_, instructions), finalState) = runState (genExpr expr) initialState
-      instructions `shouldBe` [LITI 4, LITI 5, OPR Mul]
+      instructions `shouldBe` [LIT 4, LIT 5, OPR Mul]
       codeCounter finalState `shouldBe` 3
 
     it "generates correct instructions for complex expression" $ do
@@ -193,7 +177,7 @@ testGenExpression = do
               )
               (Ast.Factor (Ast.IntLit 4))
       let ((_, instructions), finalState) = runState (genExpr expr) initialState
-      instructions `shouldBe` [LITI 2, LITI 3, OPR Mul, LITI 4, OPR Add]
+      instructions `shouldBe` [LIT 2, LIT 3, OPR Mul, LIT 4, OPR Add]
       codeCounter finalState `shouldBe` 5
 
     it "generates correct instructions for parenthesized expression" $ do
@@ -207,7 +191,7 @@ testGenExpression = do
                   )
               )
       let ((_, instructions), finalState) = runState (genExpr expr) initialState
-      instructions `shouldBe` [LITI 1, LITI 2, OPR Add]
+      instructions `shouldBe` [LIT 1, LIT 2, OPR Add]
       codeCounter finalState `shouldBe` 3
 
     it "generates correct instructions for matrix multiplication" $ do
@@ -229,7 +213,7 @@ testGenExpression = do
                     ]
               }
       let ((_, instructions), finalState) = runState (genExpr expr) initialStateWithMatrix
-      instructions `shouldBe` [LOD 0 3, LOD 0 4, OPR (MatrixMul (10, 10) (10, 10))]
+      instructions `shouldBe` [LODN 0 3 100,LODN 0 4 100,OPR (MatrixMul (10,10) (10,10))]
       codeCounter finalState `shouldBe` 3
 
 testConditions :: Spec
@@ -242,7 +226,7 @@ testConditions = do
               Ast.Eq
               (Ast.Factor (Ast.IntLit 3))
       let (instructions, finalState) = runState (genCondition cond) initialState
-      instructions `shouldBe` [LITI 5, LITI 3, OPR Eq]
+      instructions `shouldBe` [LIT 5, LIT 3, OPR Eq]
       codeCounter finalState `shouldBe` 3
 
     it "generates correct instructions for less than comparison with variables" $ do
@@ -296,7 +280,7 @@ testConditions = do
               Ast.Neq
               (Ast.Factor (Ast.IntLit 5))
       let (instructions, finalState) = runState (genCondition cond) stateWithMixed
-      instructions `shouldBe` [LOD 0 3, LITI 5, OPR Not]
+      instructions `shouldBe` [LOD 0 3, LIT 5, OPR Not]
       codeCounter finalState `shouldBe` 3
 
     it "generates correct instructions for negated condition" $ do
@@ -308,7 +292,7 @@ testConditions = do
                   (Ast.Factor (Ast.IntLit 2))
               )
       let (instructions, finalState) = runState (genCondition cond) initialState
-      instructions `shouldBe` [LITI 1, LITI 2, OPR Lt, OPR Not]
+      instructions `shouldBe` [LIT 1, LIT 2, OPR Lt, OPR Not]
       codeCounter finalState `shouldBe` 4
 
     it "generates correct instructions for nested comparison in different block" $ do
@@ -326,7 +310,7 @@ testConditions = do
               Ast.Lte
               (Ast.Factor (Ast.IntLit 10))
       let (instructions, finalState) = runState (genCondition cond) stateWithNestedVar
-      instructions `shouldBe` [LOD 1 3, LITI 10, OPR Lte]
+      instructions `shouldBe` [LOD 1 3, LIT 10, OPR Lte]
       codeCounter finalState `shouldBe` 3
       depthCounter finalState `shouldBe` 2
 
@@ -355,7 +339,7 @@ testGenStatement = do
 
       let (instructions, finalState) = runState (genStatement stmt) initialStateWithX
 
-      instructions `shouldBe` [LITI 42, STO 0 0]
+      instructions `shouldBe` [LIT 42, STO 0 0]
 
       depthCounter finalState `shouldBe` 0
       nameCounter finalState `shouldBe` 1
@@ -420,7 +404,7 @@ testGenStatement = do
       let stmt = Ast.Write (Ast.Factor (Ast.IntLit 42))
       let (instructions, finalState) = runState (genStatement stmt) initialState
 
-      instructions `shouldBe` [LITI 42, WRI]
+      instructions `shouldBe` [LIT 42, WRI]
 
       depthCounter finalState `shouldBe` 0
       nameCounter finalState `shouldBe` 0
@@ -459,7 +443,7 @@ testGenStatement = do
 
       let (instructions, finalState) = runState (genStatement stmt) initialStateWithXAndY
 
-      instructions `shouldBe` [LITI 1, STO 0 0, LITI 2, STO 0 1]
+      instructions `shouldBe` [LIT 1, STO 0 0, LIT 2, STO 0 1]
 
       depthCounter finalState `shouldBe` 0
       nameCounter finalState `shouldBe` 2
@@ -495,7 +479,7 @@ testGenStatement = do
 
       let (instructions, finalState) = runState (genStatement stmt) initialStateWithXAndY
 
-      instructions `shouldBe` [LOD 0 0, LITI 0, OPR Eq, JOF ".if_0", LITI 1, STO 0 1, LAB ".if_0"]
+      instructions `shouldBe` [LOD 0 0, LIT 0, OPR Eq, JOF ".if_0", LIT 1, STO 0 1, LAB ".if_0"]
 
       depthCounter finalState `shouldBe` 0
       nameCounter finalState `shouldBe` 2
@@ -527,11 +511,11 @@ testGenStatement = do
       instructions
         `shouldBe` [ LAB ".while_start_0",
                      LOD 0 0, -- Load i
-                     LITI 10, -- Load 10
+                     LIT 10, -- Load 10
                      OPR Lt, -- Compare
                      JOF ".while_end_1", -- Jump to end if false
                      LOD 0 0, -- Load i
-                     LITI 1, -- Load 1
+                     LIT 1, -- Load 1
                      OPR Add, -- Add
                      STO 0 0, -- Store in i
                      JMP ".while_start_0", -- Jump back to condition
@@ -575,14 +559,14 @@ testGenExpressionFromScript = do
       let ((_, instructions), finalState) = runState (genExpr expr) initialState
 
       instructions
-        `shouldBe` [ LITI 3, -- Push 3
-                     LITI 5, -- Push 5
+        `shouldBe` [ LIT 3, -- Push 3
+                     LIT 5, -- Push 5
                      OPR Add, -- Add -> 8
-                     LITI 2, -- Push 2
+                     LIT 2, -- Push 2
                      OPR Add, -- Add -> 10
-                     LITI 12, -- Push 12
-                     LITI 9, -- Push 9
-                     LITI 2, -- Push 2
+                     LIT 12, -- Push 12
+                     LIT 9, -- Push 9
+                     LIT 2, -- Push 2
                      OPR Mul, -- Multiply -> 18
                      OPR Add, -- Add -> 30
                      OPR Mul -- Final multiplication -> 300
@@ -672,14 +656,14 @@ genExampleProgramFromScript = do
                      LAB ".procedure_potenz_0",
                      -- PROCEDURE potenz (calculating a^b)
                      INC 1, -- 3: Reserve space for local variable y
-                     LITI 1, -- 4: Load constant 1
+                     LIT 1, -- 4: Load constant 1
                      STO 1 5, -- 5: pot := 1
                      LOD 1 4, -- 6: Load value of b
                      STO 0 3, -- 7: y := b
                      LAB ".while_start_1",
                      -- While condition (NOT y < 1)
                      LOD 0 3, -- 8: Load y
-                     LITI 1, -- 9: Load constant 1
+                     LIT 1, -- 9: Load constant 1
                      OPR Lt, -- 10: Compare less than
                      OPR Not, -- 11: Logical NOT
                      JOF ".while_end_2", -- 12: Jump to loop body if true
@@ -690,7 +674,7 @@ genExampleProgramFromScript = do
                      OPR Mul, -- 15: Multiply
                      STO 1 5, -- 16: pot := pot * a
                      LOD 0 3, -- 17: Load y
-                     LITI 1, -- 18: Load constant 1
+                     LIT 1, -- 18: Load constant 1
                      OPR Sub, -- 19: Subtract
                      STO 0 3, -- 20: y := y - 1
                      JMP ".while_start_1", -- 21: Jump to while condition
@@ -700,7 +684,7 @@ genExampleProgramFromScript = do
                      -- PROCEDURE fakultaet (calculating n!)
                      LAB ".procedure_fakultaet_3",
                      LOD 1 6, -- 23: Load n
-                     LITI 1, -- 24: Load constant 1
+                     LIT 1, -- 24: Load constant 1
                      OPR Gt, -- 25: Compare greater than
                      JOF ".if_4", -- 26: Skip if condition false (n <= 1)
 
@@ -710,7 +694,7 @@ genExampleProgramFromScript = do
                      OPR Mul, -- 29: Multiply
                      STO 1 7, -- 30: fak := fak * n
                      LOD 1 6, -- 31: Load n
-                     LITI 1, -- 32: Load constant 1
+                     LIT 1, -- 32: Load constant 1
                      OPR Sub, -- 33: Subtract
                      STO 1 6, -- 34: n := n - 1
                      CAL 1 ".procedure_fakultaet_3", -- 35: Recursive call to fakultaet
@@ -728,7 +712,7 @@ genExampleProgramFromScript = do
                      WRI, -- 43: WRITE pot
                      REA, -- 44: Read input
                      STO 0 6, -- 45: READ n
-                     LITI 1, -- 46: Load constant 1
+                     LIT 1, -- 46: Load constant 1
                      STO 0 7, -- 47: fak := 1
                      CAL 0 ".procedure_fakultaet_3", -- 48: CALL fakultaet
                      LOD 0 7, -- 49: Load fak

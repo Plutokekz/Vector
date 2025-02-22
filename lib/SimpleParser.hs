@@ -330,7 +330,7 @@ parseMatrixValue = do
 -- | Parse a vector literal as a single-row matrix
 parseVectorLiteral :: Parser Expression
 parseVectorLiteral = do
-  elements <- parseExpression `parseSeparatedBy` match Comma
+  elements <- parseNumber `parseSeparatedBy` match Comma
   match RBracket
   return $ Factor $ VectorizedLit [elements]  -- Wrap in single row
 
@@ -338,12 +338,12 @@ parseVectorLiteral = do
 parseMatrixLiteral :: Parser Expression
 parseMatrixLiteral = do
   advance -- consume the second [
-  row1 <- parseExpression `parseSeparatedBy` match Comma
+  row1 <- parseNumber `parseSeparatedBy` match Comma
   match RBracket
   rows <- many $ do
     match Comma
     match LBracket
-    row <- parseExpression `parseSeparatedBy` match Comma
+    row <- parseNumber `parseSeparatedBy` match Comma
     match RBracket
     return row
   match RBracket
@@ -487,9 +487,9 @@ parseFactor = do
       case tokenKeyword current' of
         LBracket -> do
           advance
-          idx1 <- parseExpression
+          idx1 <- parseFactor
           match Comma
-          idx2 <- parseExpression
+          idx2 <- parseFactor
           match RBracket
           return $ Factor $ VectorizedIndex name (idx1, idx2)
         _ -> return $ Factor $ Var name
@@ -527,5 +527,4 @@ parseMatrixOp =
     getOp tok =
       case tok of
         Token.ElementMult -> Just Ast.ElementMul
-        Token.ElementDiv -> Just Ast.ElementDiv
         _ -> Nothing

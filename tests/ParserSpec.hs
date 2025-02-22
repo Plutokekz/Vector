@@ -78,6 +78,7 @@ testParseBlock = do
                   ]
               )
           )
+
 testParseConstDecls :: Spec
 testParseConstDecls = do
   describe "SimpleParser.parseConstDecls" $ do
@@ -255,17 +256,17 @@ testParseExpression = do
     it "parses vector literal" $ do
       let input = "[3]"
       let result = testParser parseExpression input
-      result `shouldBe` Right (Factor (VectorizedLit [[Factor (IntLit 3)]]))
+      result `shouldBe` Right (Factor (VectorizedLit [[3]]))
 
     it "parses multi-element vector literal" $ do
       let input = "[1, 2, 3]"
       let result = testParser parseExpression input
-      result `shouldBe` Right (Factor (VectorizedLit [[Factor (IntLit 1), Factor (IntLit 2), Factor (IntLit 3)]]))
+      result `shouldBe` Right (Factor (VectorizedLit [[1, 2, 3]]))
 
     it "parses matrix literal" $ do
       let input = "[[1, 2], [3, 4]]"
       let result = testParser parseExpression input
-      result `shouldBe` Right (Factor (VectorizedLit [[Factor (IntLit 1), Factor (IntLit 2)], [Factor (IntLit 3), Factor (IntLit 4)]]))
+      result `shouldBe` Right (Factor (VectorizedLit [[1, 2], [3, 4]]))
 
 testParseCondition :: Spec
 testParseCondition = do
@@ -303,21 +304,30 @@ testMatrixVectorOperations = do
       let result = testParser parseExpression input
       result `shouldBe` Right (Binary Ast.ElementMul (Factor (Var "A")) (Factor (Var "B")))
 
-    it "parses element-wise matrix division" $ do
-      let input = "A ./ B"
-      let result = testParser parseExpression input
-      result `shouldBe` Right (Binary Ast.ElementDiv (Factor (Var "A")) (Factor (Var "B")))
-
     it "parses matrix indexing" $ do
-      let input = "A[i + 1, j * 2]"
+      let input = "A[(i + 1), (j * 2)]"
       let result = testParser parseExpression input
       result
         `shouldBe` Right
           ( Factor
               ( VectorizedIndex
                   "A"
-                  ( Binary Add (Factor (Var "i")) (Factor (IntLit 1)),
-                    Binary Mul (Factor (Var "j")) (Factor (IntLit 2))
+                  ( Factor
+                      ( Parens
+                          ( Binary
+                              Add
+                              (Factor (Var "i"))
+                              (Factor (IntLit 1))
+                          )
+                      ),
+                    Factor
+                      ( Parens
+                          ( Binary
+                              Mul
+                              (Factor (Var "j"))
+                              (Factor (IntLit 2))
+                          )
+                      )
                   )
               )
           )
@@ -399,8 +409,8 @@ testComplexProgram = do
                                       (Factor (Var "A"))
                                       ( Factor
                                           ( VectorizedLit
-                                              [ [Factor (IntLit 2), Factor (IntLit 0)],
-                                                [Factor (IntLit 0), Factor (IntLit 2)]
+                                              [ [2, 0],
+                                                [0, 2]
                                               ]
                                           )
                                       )

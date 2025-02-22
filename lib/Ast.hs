@@ -42,7 +42,6 @@ data BinOp
   | Mul
   | Div
   | ElementMul -- .* operator
-  | ElementDiv -- ./ operator
   deriving (Show, Eq)
 
 data UnOp = Pos | Neg deriving (Show, Eq)
@@ -52,7 +51,7 @@ data Factor
   | IntLit Integer
   | FloatLit Double
   | Parens Expression
-  | VectorizedLit [[Expression]]
+  | VectorizedLit [[Integer]]
   | VectorizedIndex String (Expression, Expression) -- Add support for matrix indexing
   deriving (Show, Eq)
 

@@ -8,6 +8,7 @@ import Control.Monad.State.Lazy
 import Data.List (find)
 import Data.Map qualified as Map
 import Debug.Trace
+import GHC.Windows (errCodeToIOError)
 
 -- Add this helper function
 debugState :: String -> Compiler ()
@@ -119,7 +120,11 @@ genStatement (Assignment name expression) = do
   when (type1 /= t) $ do
     return $ error $ "Wrong Type: " ++ show type1 ++ " != " ++ show t
   modify $ \s -> s {codeCounter = codeCounter s + 1}
-  return $ exprCode ++ [STO s i]
+  case t of
+    (VectorizedType vt dim vs) -> do
+      let (w, h) = dim
+      return $ exprCode ++ [STON s i (w * h)]
+    _ -> return $ exprCode ++ [STO s i]
 genStatement (Call name) = do
   s <- step name
   a <- codeaddress name
@@ -258,16 +263,78 @@ genFactor (Var name) = do
   i <- offset name
   t <- getType name
   modify $ \s -> s {codeCounter = codeCounter s + 1}
-  return (t, [LOD s i])
+  case t of
+    (VectorizedType vt dim vs) -> do
+      let (w, h) = dim
+      return (t, [LODN s i (w * h)])
+    _ -> return (t, [LOD s i])
 genFactor (IntLit value) = do
   modify $ \s -> s {codeCounter = codeCounter s + 1}
-  return (NumberType (IntType Int64), [LITI value])
+  return (NumberType (IntType Int64), [LIT value])
 genFactor (FloatLit value) = do
-  modify $ \s -> s {codeCounter = codeCounter s + 1}
-  return (NumberType (FloatType Float64), [LITF value])
+  error "Not Implementen"
 genFactor (Parens expr) = genExpr expr
-genFactor (VectorizedLit exprMatrix) = error "Not Implementen"
-genFactor (VectorizedIndex name (x, y)) = error "Not Implementen"
+genFactor (VectorizedLit litMatrix) = do
+  let w = length litMatrix
+  when (w == 0) $ do
+    error "Vector Literal with length 0"
+  let h = length $ head litMatrix
+  modify $ \s -> s {codeCounter = codeCounter s + 1}
+  -- TODO calculate matrix or vector specifier
+  return (VectorizedType (IntType Int64) (toInteger w, toInteger h) Nothing, [LITV $ concat litMatrix])
+genFactor (VectorizedIndex name (Factor x, Factor y)) = do
+  s <- step name
+  i <- offset name
+  t <- getType name
+  case t of
+    VectorizedType vt vd vs -> do
+      case (x, y) of
+        (Var x, Var y) -> do
+          let indexExpr =
+                Ast.Binary
+                  Ast.Add
+                  ( Ast.Binary
+                      Ast.Mul
+                      (Ast.Factor (Ast.Var y))
+                      (Ast.Factor (Ast.IntLit (fst vd)))
+                  )
+                  (Ast.Factor (Ast.Var x))
+          (type1, exprCode) <- genExpr indexExpr
+          modify $ \s -> s {codeCounter = codeCounter s + 1}
+          return (NumberType vt, exprCode ++ [LODO s i])
+        (IntLit x, Var y) -> do
+          let indexExpr =
+                Ast.Binary
+                  Ast.Add
+                  ( Ast.Binary
+                      Ast.Mul
+                      (Ast.Factor (Ast.Var y))
+                      (Ast.Factor (Ast.IntLit (fst vd)))
+                  )
+                  (Ast.Factor (Ast.IntLit x))
+          (type1, exprCode) <- genExpr indexExpr
+          modify $ \s -> s {codeCounter = codeCounter s + 1}
+          return (NumberType vt, exprCode ++ [LODO s i])
+        (Var x, IntLit y) -> do
+          let indexExpr =
+                Ast.Binary
+                  Ast.Add
+                  ( Ast.Binary
+                      Ast.Mul
+                      (Ast.Factor (Ast.IntLit y))
+                      (Ast.Factor (Ast.IntLit (fst vd)))
+                  )
+                  (Ast.Factor (Ast.Var x))
+          (type1, exprCode) <- genExpr indexExpr
+          modify $ \s -> s {codeCounter = codeCounter s + 1}
+          return (NumberType vt, exprCode ++ [LODO s i])
+        (IntLit x, IntLit y) -> do
+          let index = y * fst vd + x
+          modify $ \s -> s {codeCounter = codeCounter s + 1}
+          --  (offset + offset of element in array)
+          return (NumberType vt, [LOD s (i + index)])
+        _ -> error "Vector Index can only be variable or literal or combination of both"
+    _ -> error "Con not index variables that is not a vector or matrix"
 
 genUnary :: UnOp -> Expression -> Compiler (Type, [Instruction])
 genUnary op expr = do
@@ -277,9 +344,7 @@ genUnary op expr = do
       modify $ \s -> s {codeCounter = codeCounter s + 1}
       (type1, exprCode) <- genExpr expr
       modify $ \s -> s {codeCounter = codeCounter s + 1}
-      -- TODO: Add right instruction for types?
-      -- Expressions need a type
-      return (type1, [LITI 0] ++ exprCode ++ [OPR AbstractOpCode.Not])
+      return (type1, [LIT 0] ++ exprCode ++ [OPR AbstractOpCode.Sub])
 
 genCondition :: Condition -> Compiler [Instruction]
 genCondition (Ast.Compare expr1 compOp expr2) = do
@@ -328,8 +393,8 @@ genConstant (name, constType, value) = do
   modify $ \s -> s {nameCounter = nameCounter s + 1, codeCounter = codeCounter s + 2}
   o <- offset name
   case value of
-    IntVal val -> return [LITI val, STO 0 o]
-    FloatVal val -> return [LITF val, STO 0 o]
+    IntVal val -> return [LIT val, STO 0 o]
+    FloatVal val -> error "Not Implemented"
 
 genVariables :: [(String, Type)] -> Compiler [Instruction]
 genVariables [] = return []

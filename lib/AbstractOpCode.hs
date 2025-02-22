@@ -9,11 +9,12 @@ data Instruction
   = RST
   | LOD Integer Integer
   | STO Integer Integer
-  | LODN Integer Integer -- Load n bytes from stack
+  | LODN Integer Integer Integer -- Load n bytes from stack
+  | LODO Integer Integer -- Loads 8bytes from stack but addes top of the stack to offset ussed to acces vector and matrix elements by varibes
   | STON Integer Integer Integer -- store n bytes on the stack
   | INC Integer
-  | LITI Integer -- Load imidieate integer
-  | LITF Double -- load imideate float
+  | LIT Integer -- Load imidieate integer
+  | LITV [Integer] -- Load imidieate Vector or Matrix
   | JMP String
   | JOT String
   | JOF String
