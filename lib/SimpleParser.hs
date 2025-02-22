@@ -202,8 +202,8 @@ parseType = do
       spec <- optional parseSpecifier
       -- Convert single dimension to two dimensions [n] -> [1,n]
       let adjustedDims = case dims of
-            [n] -> [1, n]  -- Convert vector dimension to 1×n matrix
-            _ -> dims
+            [n] -> (1, n)  -- Convert vector dimension to 1×n matrix
+            [w, h] -> (w, h)
       return $ VectorizedType numType adjustedDims spec
     -- If there are no brackets, it's a simple number type
     _ -> return $ NumberType numType

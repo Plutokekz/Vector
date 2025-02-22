@@ -229,7 +229,7 @@ testGenExpression = do
                     ]
               }
       let ((_, instructions), finalState) = runState (genExpr expr) initialStateWithMatrix
-      instructions `shouldBe` [LOD 0 3, LOD 0 4, OPR (MatrixMul (0, 0) (0, 0))]
+      instructions `shouldBe` [LOD 0 3, LOD 0 4, OPR (MatrixMul (10, 10) (10, 10))]
       codeCounter finalState `shouldBe` 3
 
 testConditions :: Spec

@@ -171,7 +171,8 @@ genStatement (While condition statement) = do
 
 resultType :: Type -> BinOp -> Type -> Compiler (Type, Instruction)
 resultType (NumberType (IntType Int64)) op (NumberType (IntType Int64)) = do
-  return (NumberType (IntType Int64), OPR AbstractOpCode.Add)
+  let opInstruction = matchIntOperation op
+  return (NumberType (IntType Int64), opInstruction)
 -- Int64 op Vector / Matrix
 resultType (NumberType (IntType Int64)) op (VectorizedType (IntType Int64) dim spec) = do
   case (op, dim) of
@@ -224,6 +225,12 @@ resultType (VectorizedType (IntType Int64) dim1 spec1) op (VectorizedType (IntTy
           let opInstruction = matchMatrixOperation op dim1
           return (VectorizedType (IntType Int64) (w1, h1) spec1, opInstruction)
 resultType type1 op type2 = error $ show type1 ++ show op ++ show type2 ++ " Not implemented or not supported"
+
+matchIntOperation :: BinOp -> Instruction
+matchIntOperation Ast.Add = OPR AbstractOpCode.Add
+matchIntOperation Ast.Sub = OPR AbstractOpCode.Sub
+matchIntOperation Ast.Div = OPR AbstractOpCode.Div
+matchIntOperation Ast.Mul = OPR AbstractOpCode.Mul
 
 matchVectorOperation :: BinOp -> Integer -> Instruction
 matchVectorOperation Ast.Add l = OPR (AbstractOpCode.VectorAdd l)

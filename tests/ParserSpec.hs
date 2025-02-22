@@ -101,7 +101,7 @@ testParseConstDecls = do
       result
         `shouldBe` Right
           [ ( "v",
-              VectorizedType (IntType Int32) [1, 3] Nothing,
+              VectorizedType (IntType Int32) (1, 3) Nothing,
               MatrixVal [[IntVal 1, IntVal 2, IntVal 3]]
             )
           ]
@@ -139,8 +139,8 @@ testParseConstDecls = do
       result
         `shouldBe` Right
           [ ("x", NumberType (IntType Int32), IntVal 42),
-            ("v", VectorizedType (IntType Int32) [1, 3] Nothing, MatrixVal [[IntVal 1, IntVal 2, IntVal 3]]),
-            ("A", VectorizedType (IntType Int32) [2, 2] Nothing, MatrixVal [[IntVal 1, IntVal 2], [IntVal 3, IntVal 4]])
+            ("v", VectorizedType (IntType Int32) (1, 3) Nothing, MatrixVal [[IntVal 1, IntVal 2, IntVal 3]]),
+            ("A", VectorizedType (IntType Int32) (2, 2) Nothing, MatrixVal [[IntVal 1, IntVal 2], [IntVal 3, IntVal 4]])
           ]
 
 testParseVarDecls :: Spec
@@ -363,11 +363,11 @@ testComplexProgram = do
               "VectorOps"
               ( Block
                   [ ( "vA",
-                      VectorizedType (IntType Int32) [1, 3] Nothing,
+                      VectorizedType (IntType Int32) (1, 3) Nothing,
                       MatrixVal [[IntVal 1, IntVal 2, IntVal 3]]
                     ),
                     ( "vB",
-                      VectorizedType (IntType Int32) [1, 3] Nothing,
+                      VectorizedType (IntType Int32) (1, 3) Nothing,
                       MatrixVal [[IntVal 4, IntVal 5, IntVal 6]]
                     ),
                     ( "A",
@@ -375,8 +375,8 @@ testComplexProgram = do
                       MatrixVal [[IntVal 1, IntVal 2], [IntVal 3, IntVal 4]]
                     )
                   ]
-                  [ ("result", VectorizedType (IntType Int32) [1, 3] Nothing),
-                    ("B", VectorizedType (IntType Int32) [2, 2] Nothing)
+                  [ ("result", VectorizedType (IntType Int32) (1, 3) Nothing),
+                    ("B", VectorizedType (IntType Int32) (2, 2) Nothing)
                   ]
                   [ Procedure
                       "elementwise"
