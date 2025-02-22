@@ -23,7 +23,7 @@ testProgramm = do
   describe "Machine code generation" $ do
     it "generates correct instructions for simple write program" $ do
       let programm = Ast.Program "Test" (Ast.Block [] [] [] (Ast.Write (Ast.Factor (Ast.IntLit 1))))
-      let (instructions, finalState) = runCompilerWithState (genProgramm programm)
+      let (_, finalState) = runCompilerWithState (genProgramm programm)
 
       -- instructions `shouldBe` [RST, LITI 1, WRI]
 
@@ -118,7 +118,7 @@ testGenExpression = do
       let programm = Ast.MatrixMul
       let (instructions, finalState) = runCompilerWithState (genBinOp programm)
 
-      instructions `shouldBe` [OPR MatrixMul]
+      instructions `shouldBe` [OPR (MatrixMul (0, 0) (0, 0))]
 
       depthCounter finalState `shouldBe` 0
       nameCounter finalState `shouldBe` 0
@@ -151,11 +151,12 @@ testGenExpression = do
               { depthCounter = 0,
                 nameCounter = 1,
                 codeCounter = 0,
+                labelCounter = 0,
                 symbolTable =
                   Map.fromList [("x", VariableEntry {depth = 0, nameCount = 0, variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64})]
               }
 
-      let (instructions, finalState) = runState (genUnary op expr) initialStateWithX
+      let ((_, instructions), finalState) = runState (genUnary op expr) initialStateWithX
 
       instructions `shouldBe` [LITI 0, LOD 0 0, OPR Not]
 
@@ -171,6 +172,7 @@ testGenExpression = do
               { depthCounter = 0,
                 nameCounter = 1,
                 codeCounter = 0,
+                labelCounter = 0,
                 symbolTable =
                   Map.fromList
                     [ ( "x",
@@ -183,7 +185,7 @@ testGenExpression = do
                     ]
               }
 
-      let (instructions, finalState) = runState (genUnary op expr) initialStateWithX
+      let ((_, instructions), finalState) = runState (genUnary op expr) initialStateWithX
 
       instructions `shouldBe` [LOD 0 0]
 
@@ -194,13 +196,13 @@ testGenExpression = do
     -- Test für einfache Faktoren
     it "generates correct instructions for integer literal" $ do
       let expr = Ast.Factor (Ast.IntLit 42)
-      let (instructions, finalState) = runState (genExpr expr) initialState
+      let ((_, instructions), finalState) = runState (genExpr expr) initialState
       instructions `shouldBe` [LITI 42]
       codeCounter finalState `shouldBe` 1
 
     it "generates correct instructions for float literal" $ do
       let expr = Ast.Factor (Ast.FloatLit 3.14)
-      let (instructions, finalState) = runState (genExpr expr) initialState
+      let ((_, instructions), finalState) = runState (genExpr expr) initialState
       instructions `shouldBe` [LITF 3.14]
       codeCounter finalState `shouldBe` 1
 
@@ -211,15 +213,16 @@ testGenExpression = do
               { depthCounter = 0,
                 nameCounter = 4,
                 codeCounter = 0,
+                labelCounter = 0,
                 symbolTable = Map.fromList [("x", VariableEntry {depth = 0, nameCount = 3, variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64})]
               }
-      let (instructions, finalState) = runState (genExpr expr) initialStateWithX
+      let ((_, instructions), finalState) = runState (genExpr expr) initialStateWithX
       instructions `shouldBe` [LOD 0 3]
       codeCounter finalState `shouldBe` 1
 
     it "generates correct instructions for negation" $ do
       let expr = Ast.Unary Ast.Neg (Ast.Factor (Ast.IntLit 5))
-      let (instructions, finalState) = runState (genExpr expr) initialState
+      let ((_, instructions), finalState) = runState (genExpr expr) initialState
       instructions `shouldBe` [LITI 0, LITI 5, OPR Not]
       codeCounter finalState `shouldBe` 3
 
@@ -229,7 +232,7 @@ testGenExpression = do
               Ast.Add
               (Ast.Factor (Ast.IntLit 2))
               (Ast.Factor (Ast.IntLit 3))
-      let (instructions, finalState) = runState (genExpr expr) initialState
+      let ((_, instructions), finalState) = runState (genExpr expr) initialState
       instructions `shouldBe` [LITI 2, LITI 3, OPR Add]
       codeCounter finalState `shouldBe` 3
 
@@ -239,7 +242,7 @@ testGenExpression = do
               Ast.Mul
               (Ast.Factor (Ast.IntLit 4))
               (Ast.Factor (Ast.IntLit 5))
-      let (instructions, finalState) = runState (genExpr expr) initialState
+      let ((_, instructions), finalState) = runState (genExpr expr) initialState
       instructions `shouldBe` [LITI 4, LITI 5, OPR Mul]
       codeCounter finalState `shouldBe` 3
 
@@ -253,7 +256,7 @@ testGenExpression = do
                   (Ast.Factor (Ast.IntLit 3))
               )
               (Ast.Factor (Ast.IntLit 4))
-      let (instructions, finalState) = runState (genExpr expr) initialState
+      let ((_, instructions), finalState) = runState (genExpr expr) initialState
       instructions `shouldBe` [LITI 2, LITI 3, OPR Mul, LITI 4, OPR Add]
       codeCounter finalState `shouldBe` 5
 
@@ -267,7 +270,7 @@ testGenExpression = do
                       (Ast.Factor (Ast.IntLit 2))
                   )
               )
-      let (instructions, finalState) = runState (genExpr expr) initialState
+      let ((_, instructions), finalState) = runState (genExpr expr) initialState
       instructions `shouldBe` [LITI 1, LITI 2, OPR Add]
       codeCounter finalState `shouldBe` 3
 
@@ -282,14 +285,15 @@ testGenExpression = do
               { depthCounter = 0,
                 nameCounter = 5,
                 codeCounter = 0,
+                labelCounter = 0,
                 symbolTable =
                   Map.fromList
                     [ ("m1", VariableEntry {depth = 0, nameCount = 3, variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) [10, 10] Nothing}),
                       ("m2", VariableEntry {depth = 0, nameCount = 4, variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) [10, 10] Nothing})
                     ]
               }
-      let (instructions, finalState) = runState (genExpr expr) initialStateWithMatrix
-      instructions `shouldBe` [LOD 0 3, LOD 0 4, OPR MatrixMul]
+      let ((_, instructions), finalState) = runState (genExpr expr) initialStateWithMatrix
+      instructions `shouldBe` [LOD 0 3, LOD 0 4, OPR (MatrixMul (0, 0) (0, 0))]
       codeCounter finalState `shouldBe` 3
 
 testConditions :: Spec
@@ -341,22 +345,22 @@ testConditions = do
       instructions `shouldBe` [LOD 0 3, LOD 0 4, OPR Gt]
       codeCounter finalState `shouldBe` 3
 
-    it "generates correct instructions for not equals with mixed types" $ do
+    it "generates correct instructions for not equals" $ do
       let stateWithMixed =
             initialState
               { symbolTable =
                   Map.fromList
-                    [ ("x", VariableEntry 0 3 (Ast.NumberType $ Ast.IntType Ast.Int8)),
-                      ("y", VariableEntry 0 4 (Ast.NumberType $ Ast.FloatType Ast.Float128))
+                    [ ("x", VariableEntry 0 3 (Ast.NumberType $ Ast.IntType Ast.Int64)),
+                      ("y", VariableEntry 0 4 (Ast.NumberType $ Ast.IntType Ast.Int64))
                     ]
               }
       let cond =
             Ast.Compare
               (Ast.Factor (Ast.Var "x"))
               Ast.Neq
-              (Ast.Factor (Ast.FloatLit 5.0))
+              (Ast.Factor (Ast.IntLit 5))
       let (instructions, finalState) = runState (genCondition cond) stateWithMixed
-      instructions `shouldBe` [LOD 0 3, LITF 5.0, OPR Not]
+      instructions `shouldBe` [LOD 0 3, LITI 5, OPR Not]
       codeCounter finalState `shouldBe` 3
 
     it "generates correct instructions for negated condition" $ do
@@ -376,7 +380,7 @@ testConditions = do
             initialState
               { symbolTable =
                   Map.fromList
-                    [ ("x", VariableEntry 1 3 (Ast.NumberType $ Ast.IntType Ast.Int32)) -- Variable from outer block
+                    [ ("x", VariableEntry 1 3 (Ast.NumberType $ Ast.IntType Ast.Int64)) -- Variable from outer block
                     ],
                 depthCounter = 2 -- Current block is nested
               }
@@ -400,6 +404,7 @@ testGenStatement = do
               { depthCounter = 0,
                 nameCounter = 1,
                 codeCounter = 0,
+                labelCounter = 0,
                 symbolTable =
                   Map.fromList
                     [ ( "x",
@@ -454,6 +459,7 @@ testGenStatement = do
               { depthCounter = 0,
                 nameCounter = 1,
                 codeCounter = 0,
+                labelCounter = 0,
                 symbolTable =
                   Map.fromList
                     [ ( "x",
@@ -630,7 +636,7 @@ testGenExpressionFromScript = do
 
       let expr = Ast.Binary Ast.Mul leftSide rightSide
 
-      let (instructions, finalState) = runState (genExpr expr) initialState
+      let ((_, instructions), finalState) = runState (genExpr expr) initialState
 
       instructions
         `shouldBe` [ LITI 3, -- Push 3
@@ -657,18 +663,18 @@ exampleProgramAst =
     ( Ast.Block
         { Ast.constDecls = [],
           Ast.varDecls =
-            [ ("a", Ast.NumberType $ Ast.IntType Ast.Int32),
-              ("b", Ast.NumberType $ Ast.IntType Ast.Int32),
-              ("pot", Ast.NumberType $ Ast.IntType Ast.Int32),
-              ("n", Ast.NumberType $ Ast.IntType Ast.Int32),
-              ("fak", Ast.NumberType $ Ast.IntType Ast.Int32)
+            [ ("a", Ast.NumberType $ Ast.IntType Ast.Int64),
+              ("b", Ast.NumberType $ Ast.IntType Ast.Int64),
+              ("pot", Ast.NumberType $ Ast.IntType Ast.Int64),
+              ("n", Ast.NumberType $ Ast.IntType Ast.Int64),
+              ("fak", Ast.NumberType $ Ast.IntType Ast.Int64)
             ],
           Ast.procedures =
             [ Ast.Procedure
                 "potenz"
                 ( Ast.Block
                     { Ast.constDecls = [],
-                      Ast.varDecls = [("y", Ast.NumberType $ Ast.IntType Ast.Int32)],
+                      Ast.varDecls = [("y", Ast.NumberType $ Ast.IntType Ast.Int64)],
                       Ast.procedures = [],
                       Ast.instruction =
                         Ast.Compound

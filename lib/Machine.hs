@@ -2,6 +2,7 @@ module Machine where
 
 import AbstractOpCode
 import Ast
+import Control.Monad
 import Control.Monad.State
 import Control.Monad.State.Lazy
 import Data.List (find)
@@ -22,6 +23,16 @@ popScope :: Compiler ()
 popScope = do
   currentDepth <- gets depthCounter
   modify $ \s -> s {symbolTable = Map.filter (\e -> depth e /= currentDepth) (symbolTable s)}
+
+getType :: Name -> Compiler Type
+getType name = do
+  table <- gets symbolTable
+  case Map.lookup name table of
+    Just entry -> do
+      case entry of
+        VariableEntry _ _ t -> return t
+        ProcedureEntry _ _ -> error $ name ++ " Is a procedure not a Variable"
+    Nothing -> error $ "Name not found: " ++ name
 
 offset :: Name -> Compiler Integer
 offset name = do
@@ -103,7 +114,10 @@ genStatement :: Statement -> Compiler [Instruction]
 genStatement (Assignment name expression) = do
   s <- step name
   i <- offset name
-  exprCode <- genExpr expression
+  t <- getType name
+  (type1, exprCode) <- genExpr expression
+  when (type1 /= t) $ do
+    return $ error $ "Wrong Type: " ++ show type1 ++ " != " ++ show t
   modify $ \s -> s {codeCounter = codeCounter s + 1}
   return $ exprCode ++ [STO s i]
 genStatement (Call name) = do
@@ -117,7 +131,7 @@ genStatement (Read name) = do
   modify $ \s -> s {codeCounter = codeCounter s + 2}
   return [REA, STO s i]
 genStatement (Write expression) = do
-  exprCode <- genExpr expression
+  (type1, exprCode) <- genExpr expression
   modify $ \s -> s {codeCounter = codeCounter s + 1}
   return $ exprCode ++ [WRI]
 genStatement (Compound statements) = do
@@ -155,42 +169,45 @@ genStatement (While condition statement) = do
   -- Return the complete instruction sequence
   return $ [LAB startLabel] ++ condCode ++ [JOF endLabel] ++ stmtCode ++ [JMP startLabel, LAB endLabel]
 
-genExpr :: Expression -> Compiler [Instruction]
+genExpr :: Expression -> Compiler (Type, [Instruction])
 genExpr (Binary op expr1 expr2) = do
-  expr1Code <- genExpr expr1
-  expr2Code <- genExpr expr2
+  (type1, expr1Code) <- genExpr expr1
+  (type2, expr2Code) <- genExpr expr2
+  when (type1 /= type2) $ do
+    error $ "Wrong Type: " ++ show type1 ++ " != " ++ show type2
   codeOp <- genBinOp op
-  return $ expr1Code ++ expr2Code ++ codeOp
+  return (type1, expr1Code ++ expr2Code ++ codeOp)
 genExpr (Unary op expr) = genUnary op expr
 genExpr (Factor factor) = genFactor factor
 
-genFactor :: Factor -> Compiler [Instruction]
+genFactor :: Factor -> Compiler (Type, [Instruction])
 genFactor (Var name) = do
   s <- step name
   i <- offset name
+  t <- getType name
   modify $ \s -> s {codeCounter = codeCounter s + 1}
-  return [LOD s i]
+  return (t, [LOD s i])
 genFactor (IntLit value) = do
   modify $ \s -> s {codeCounter = codeCounter s + 1}
-  return [LITI value]
+  return (NumberType (IntType Int64), [LITI value])
 genFactor (FloatLit value) = do
   modify $ \s -> s {codeCounter = codeCounter s + 1}
-  return [LITF value]
+  return (NumberType (FloatType Float64), [LITF value])
 genFactor (Parens expr) = genExpr expr
 genFactor (VectorizedLit exprMatrix) = error "Not Implementen"
 genFactor (VectorizedIndex name (x, y)) = error "Not Implementen"
 
-genUnary :: UnOp -> Expression -> Compiler [Instruction]
+genUnary :: UnOp -> Expression -> Compiler (Type, [Instruction])
 genUnary op expr = do
   case op of
     Pos -> genExpr expr
     Neg -> do
       modify $ \s -> s {codeCounter = codeCounter s + 1}
-      exprCode <- genExpr expr
+      (type1, exprCode) <- genExpr expr
       modify $ \s -> s {codeCounter = codeCounter s + 1}
       -- TODO: Add right instruction for types?
       -- Expressions need a type
-      return $ [LITI 0] ++ exprCode ++ [OPR AbstractOpCode.Not]
+      return (type1, [LITI 0] ++ exprCode ++ [OPR AbstractOpCode.Not])
 
 genBinOp :: BinOp -> Compiler [Instruction]
 genBinOp op = do
@@ -202,14 +219,16 @@ genBinOp' Ast.Add = return [OPR AbstractOpCode.Add]
 genBinOp' Ast.Sub = return [OPR AbstractOpCode.Sub]
 genBinOp' Ast.Mul = return [OPR AbstractOpCode.Mul]
 genBinOp' Ast.Div = return [OPR AbstractOpCode.Div]
-genBinOp' Ast.MatrixMul = return [OPR AbstractOpCode.MatrixMul]
+genBinOp' Ast.MatrixMul = return [OPR (AbstractOpCode.MatrixMul (0, 0) (0, 0))]
 genBinOp' Ast.ElementMul = return [OPR AbstractOpCode.ElementMul]
 genBinOp' Ast.ElementDiv = return [OPR AbstractOpCode.ElementDiv]
 
 genCondition :: Condition -> Compiler [Instruction]
 genCondition (Ast.Compare expr1 compOp expr2) = do
-  expr1Code <- genExpr expr1
-  expr2Code <- genExpr expr2
+  (type1, expr1Code) <- genExpr expr1
+  (type2, expr2Code) <- genExpr expr2
+  when (type1 /= type2) $ do
+    error $ "Wrong Type: " ++ show type1 ++ " != " ++ show type2
   opr <- genCompare compOp
   return $ expr1Code ++ expr2Code ++ opr
 genCondition (Ast.Not condition) = do

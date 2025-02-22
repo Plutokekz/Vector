@@ -126,7 +126,7 @@ generateAssemblyInstructions (OPR Not) = do
       "xori t0, t0, 1", --   # XOR with 1 to invert the bit
       "sd t0, 0(sp)" -- Store result (no stack adjustment needed)
     ]
-generateAssemblyInstructions (OPR MatrixMul) = error "Not Implemented"
+generateAssemblyInstructions (OPR (MatrixMul _ _)) = error "Not Implemented"
 generateAssemblyInstructions (OPR ElementMul) = error "Not Implemented"
 generateAssemblyInstructions (OPR ElementDiv) = error "Not Implemented"
 generateAssemblyInstructions (LITF value) = error "Not Implemented"

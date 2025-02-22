@@ -1,9 +1,9 @@
 PROGRAM Example1:
-VAR INT32 a;
-VAR INT32 b;
-VAR INT32 pot;
+VAR INT64 a;
+VAR INT64 b;
+VAR INT64 pot;
 PROCEDURE potenz;
-VAR INT32 y;
+VAR INT64 y;
 BEGIN
   pot = 1;
   y = b;

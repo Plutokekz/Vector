@@ -1,17 +1,15 @@
 module ParserSpec (spec) where
 
 import Ast
-import Control.Monad.State
 import Control.Monad.Except
-import Data.Map qualified as Map
+import Control.Monad.State
+import Lexer (tokenize)
 import SimpleParser
 import Test.Hspec
-import Token (Token (..), TokenKeyword (..))
-import Lexer (tokenize)
 
 -- Helper functions to test individual parser components
 testParser :: Parser a -> String -> Either String a
-testParser parser input = 
+testParser parser input =
   case tokenize input of
     Left err -> Left (show err)
     Right (_, tokens, _) ->
@@ -67,12 +65,19 @@ testParseBlock = do
     it "parses block with multiple instructions" $ do
       let input = "BEGIN x = 1; y = 2; z = 3 END"
       let result = testParser parseBlock input
-      result `shouldBe` Right (Block [] [] [] (Compound [
-        Assignment "x" (Factor (IntLit 1)),
-        Assignment "y" (Factor (IntLit 2)),
-        Assignment "z" (Factor (IntLit 3))
-        ]))
-
+      result
+        `shouldBe` Right
+          ( Block
+              []
+              []
+              []
+              ( Compound
+                  [ Assignment "x" (Factor (IntLit 1)),
+                    Assignment "y" (Factor (IntLit 2)),
+                    Assignment "z" (Factor (IntLit 3))
+                  ]
+              )
+          )
 testParseConstDecls :: Spec
 testParseConstDecls = do
   describe "SimpleParser.parseConstDecls" $ do
@@ -84,47 +89,59 @@ testParseConstDecls = do
     it "parses multiple constant declarations" $ do
       let input = "CONST INT32 x = 42, y = 24;"
       let result = testParser parseConstDecls input
-      result `shouldBe` Right [
-        ("x", NumberType (IntType Int32), IntVal 42),
-        ("y", NumberType (IntType Int32), IntVal 24)
-        ]
+      result
+        `shouldBe` Right
+          [ ("x", NumberType (IntType Int32), IntVal 42),
+            ("y", NumberType (IntType Int32), IntVal 24)
+          ]
 
     it "parses vector constant declaration" $ do
       let input = "CONST INT32 DIM(3) v = [1, 2, 3];"
       let result = testParser parseConstDecls input
-      result `shouldBe` Right [
-        ("v", VectorizedType (IntType Int32) [3] Nothing,
-         VectorVal [IntVal 1, IntVal 2, IntVal 3])
-        ]
+      result
+        `shouldBe` Right
+          [ ( "v",
+              VectorizedType (IntType Int32) [3] Nothing,
+              VectorVal [IntVal 1, IntVal 2, IntVal 3]
+            )
+          ]
 
     it "parses matrix constant declaration" $ do
       let input = "CONST INT32 DIM(2, 2) m = [[1, 2], [3, 4]];"
       let result = testParser parseConstDecls input
-      result `shouldBe` Right [
-        ("m", VectorizedType (IntType Int32) [2, 2] Nothing,
-         MatrixVal [[IntVal 1, IntVal 2], [IntVal 3, IntVal 4]])
-        ]
+      result
+        `shouldBe` Right
+          [ ( "m",
+              VectorizedType (IntType Int32) [2, 2] Nothing,
+              MatrixVal [[IntVal 1, IntVal 2], [IntVal 3, IntVal 4]]
+            )
+          ]
 
     it "parses identity matrix constant declaration" $ do
       let input = "CONST INT32 DIM(2, 2) Identity I = [[1, 0], [0, 1]];"
       let result = testParser parseConstDecls input
-      result `shouldBe` Right [
-        ("I", VectorizedType (IntType Int32) [2, 2] (Just Ast.Identity),
-         MatrixVal [[IntVal 1, IntVal 0], [IntVal 0, IntVal 1]])
-        ]
+      result
+        `shouldBe` Right
+          [ ( "I",
+              VectorizedType (IntType Int32) [2, 2] (Just Ast.Identity),
+              MatrixVal [[IntVal 1, IntVal 0], [IntVal 0, IntVal 1]]
+            )
+          ]
 
     it "parses multiple CONST declarations with different types" $ do
-      let input = unlines [
-            "CONST INT32 x = 42;",
-            "CONST INT32 DIM(3) v = [1, 2, 3];",
-            "CONST INT32 DIM(2, 2) A = [[1, 2], [3, 4]];"
-            ]
+      let input =
+            unlines
+              [ "CONST INT32 x = 42;",
+                "CONST INT32 DIM(3) v = [1, 2, 3];",
+                "CONST INT32 DIM(2, 2) A = [[1, 2], [3, 4]];"
+              ]
       let result = testParser parseConstDecls input
-      result `shouldBe` Right [
-        ("x", NumberType (IntType Int32), IntVal 42),
-        ("v", VectorizedType (IntType Int32) [3] Nothing, VectorVal [IntVal 1, IntVal 2, IntVal 3]),
-        ("A", VectorizedType (IntType Int32) [2, 2] Nothing, MatrixVal [[IntVal 1, IntVal 2], [IntVal 3, IntVal 4]])
-        ]
+      result
+        `shouldBe` Right
+          [ ("x", NumberType (IntType Int32), IntVal 42),
+            ("v", VectorizedType (IntType Int32) [3] Nothing, VectorVal [IntVal 1, IntVal 2, IntVal 3]),
+            ("A", VectorizedType (IntType Int32) [2, 2] Nothing, MatrixVal [[IntVal 1, IntVal 2], [IntVal 3, IntVal 4]])
+          ]
 
 testParseVarDecls :: Spec
 testParseVarDecls = do
@@ -137,10 +154,11 @@ testParseVarDecls = do
     it "parses multiple variable declarations" $ do
       let input = "VAR INT32 x; FLOAT64 y;"
       let result = testParser parseVarDecls input
-      result `shouldBe` Right [
-        ("x", NumberType (IntType Int32)),
-        ("y", NumberType (FloatType Float64))
-        ]
+      result
+        `shouldBe` Right
+          [ ("x", NumberType (IntType Int32)),
+            ("y", NumberType (FloatType Float64))
+          ]
 
 testParseType :: Spec
 testParseType = do
@@ -204,8 +222,12 @@ testParseStatement = do
     it "parses while statement" $ do
       let input = "WHILE x > 0 DO BEGIN x = x - 1 END"
       let result = testParser parseInstruction input
-      result `shouldBe` Right (While (Compare (Factor (Var "x")) Gt (Factor (IntLit 0))) 
-        (Compound [Assignment "x" (Binary Sub (Factor (Var "x")) (Factor (IntLit 1)))]))
+      result
+        `shouldBe` Right
+          ( While
+              (Compare (Factor (Var "x")) Gt (Factor (IntLit 0)))
+              (Compound [Assignment "x" (Binary Sub (Factor (Var "x")) (Factor (IntLit 1)))])
+          )
 
 testParseExpression :: Spec
 testParseExpression = do
@@ -289,67 +311,109 @@ testMatrixVectorOperations = do
     it "parses matrix indexing" $ do
       let input = "A[i + 1, j * 2]"
       let result = testParser parseExpression input
-      result `shouldBe` Right (Factor (VectorizedIndex "A" 
-        (Binary Add (Factor (Var "i")) (Factor (IntLit 1)),
-         Binary Mul (Factor (Var "j")) (Factor (IntLit 2)))))
+      result
+        `shouldBe` Right
+          ( Factor
+              ( VectorizedIndex
+                  "A"
+                  ( Binary Add (Factor (Var "i")) (Factor (IntLit 1)),
+                    Binary Mul (Factor (Var "j")) (Factor (IntLit 2))
+                  )
+              )
+          )
 
     it "parses complex matrix expression" $ do
       let input = "(A @ B) .* (C + D)"
       let result = testParser parseExpression input
-      result `shouldBe` Right (Binary ElementMul 
-        (Factor (Parens (Binary MatrixMul (Factor (Var "A")) (Factor (Var "B")))))
-        (Factor (Parens (Binary Add (Factor (Var "C")) (Factor (Var "D"))))))
+      result
+        `shouldBe` Right
+          ( Binary
+              ElementMul
+              (Factor (Parens (Binary MatrixMul (Factor (Var "A")) (Factor (Var "B")))))
+              (Factor (Parens (Binary Add (Factor (Var "C")) (Factor (Var "D")))))
+          )
 
 testComplexProgram :: Spec
 testComplexProgram = do
   describe "Complex Matrix Program" $ do
     it "parses a complete matrix manipulation program" $ do
-      let input = unlines [
-            "PROGRAM VectorOps:",
-            "  CONST INT32 DIM(3) vA = [1, 2, 3];",
-            "  CONST INT32 DIM(3) vB = [4, 5, 6];",
-            "  CONST INT32 DIM(2, 2) A = [[1, 2], [3, 4]];",
-            "  VAR INT32 DIM(3) result;",
-            "  VAR INT32 DIM(2, 2) B;",
-            "  PROCEDURE elementwise;",
-            "    BEGIN",
-            "      result = vA .* vB;",
-            "      B = A .* [[2, 0], [0, 2]]",
-            "    END;",
-            "  BEGIN",
-            "    CALL elementwise;",
-            "    WRITE result;",
-            "    WRITE B",
-            "  END."
-            ]
+      let input =
+            unlines
+              [ "PROGRAM VectorOps:",
+                "  CONST INT32 DIM(3) vA = [1, 2, 3];",
+                "  CONST INT32 DIM(3) vB = [4, 5, 6];",
+                "  CONST INT32 DIM(2, 2) A = [[1, 2], [3, 4]];",
+                "  VAR INT32 DIM(3) result;",
+                "  VAR INT32 DIM(2, 2) B;",
+                "  PROCEDURE elementwise;",
+                "    BEGIN",
+                "      result = vA .* vB;",
+                "      B = A .* [[2, 0], [0, 2]]",
+                "    END;",
+                "  BEGIN",
+                "    CALL elementwise;",
+                "    WRITE result;",
+                "    WRITE B",
+                "  END."
+              ]
       let result = parse input
-      result `shouldBe` Right (Program "VectorOps" 
-        (Block 
-          [ ("vA", VectorizedType (IntType Int32) [3] Nothing,
-             VectorVal [IntVal 1, IntVal 2, IntVal 3])
-          , ("vB", VectorizedType (IntType Int32) [3] Nothing,
-             VectorVal [IntVal 4, IntVal 5, IntVal 6])
-          , ("A", VectorizedType (IntType Int32) [2, 2] Nothing,
-             MatrixVal [[IntVal 1, IntVal 2], [IntVal 3, IntVal 4]])
-          ]
-          [ ("result", VectorizedType (IntType Int32) [3] Nothing)
-          , ("B", VectorizedType (IntType Int32) [2, 2] Nothing)
-          ]
-          [Procedure "elementwise" 
-            (Block [] [] [] 
-              (Compound 
-                [ Assignment "result" 
-                    (Binary ElementMul 
-                      (Factor (Var "vA")) 
-                      (Factor (Var "vB")))
-                , Assignment "B"
-                    (Binary ElementMul
-                      (Factor (Var "A"))
-                      (Factor (VectorizedLit 
-                        [[Factor (IntLit 2), Factor (IntLit 0)]
-                        ,[Factor (IntLit 0), Factor (IntLit 2)]])))]))]
-          (Compound 
-            [ Call "elementwise"
-            , Write (Factor (Var "result"))
-            , Write (Factor (Var "B"))
-            ]))) 
+      result
+        `shouldBe` Right
+          ( Program
+              "VectorOps"
+              ( Block
+                  [ ( "vA",
+                      VectorizedType (IntType Int32) [3] Nothing,
+                      VectorVal [IntVal 1, IntVal 2, IntVal 3]
+                    ),
+                    ( "vB",
+                      VectorizedType (IntType Int32) [3] Nothing,
+                      VectorVal [IntVal 4, IntVal 5, IntVal 6]
+                    ),
+                    ( "A",
+                      VectorizedType (IntType Int32) [2, 2] Nothing,
+                      MatrixVal [[IntVal 1, IntVal 2], [IntVal 3, IntVal 4]]
+                    )
+                  ]
+                  [ ("result", VectorizedType (IntType Int32) [3] Nothing),
+                    ("B", VectorizedType (IntType Int32) [2, 2] Nothing)
+                  ]
+                  [ Procedure
+                      "elementwise"
+                      ( Block
+                          []
+                          []
+                          []
+                          ( Compound
+                              [ Assignment
+                                  "result"
+                                  ( Binary
+                                      ElementMul
+                                      (Factor (Var "vA"))
+                                      (Factor (Var "vB"))
+                                  ),
+                                Assignment
+                                  "B"
+                                  ( Binary
+                                      ElementMul
+                                      (Factor (Var "A"))
+                                      ( Factor
+                                          ( VectorizedLit
+                                              [ [Factor (IntLit 2), Factor (IntLit 0)],
+                                                [Factor (IntLit 0), Factor (IntLit 2)]
+                                              ]
+                                          )
+                                      )
+                                  )
+                              ]
+                          )
+                      )
+                  ]
+                  ( Compound
+                      [ Call "elementwise",
+                        Write (Factor (Var "result")),
+                        Write (Factor (Var "B"))
+                      ]
+                  )
+              )
+          )

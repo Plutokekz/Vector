@@ -1,9 +1,19 @@
 module LexerSpec (spec) where
 
-import Lexer (Lexer (runLexer), identifier, number, operator, runLexer, matchString, matchInputWithError, 
- whitespace, LexerError (..), LexerErrorType (..))
-import Token (TokenKeyword (..))
+import Lexer
+  ( Lexer (runLexer),
+    LexerError (..),
+    LexerErrorType (..),
+    identifier,
+    matchInputWithError,
+    matchString,
+    number,
+    operator,
+    runLexer,
+    whitespace,
+  )
 import Test.Hspec
+import Token (TokenKeyword (..))
 
 spec :: Spec
 spec = do
@@ -151,7 +161,7 @@ testOperator = do
       runLexer operator "\'" 0 `shouldBe` Right (1, Transpose, "")
 
 testWhitespace :: Spec
-testWhitespace = do 
+testWhitespace = do
   describe "Lexer.whitespace" $ do
     it "skips whitespace returns empty tuple" $ do
       runLexer whitespace " " 0 `shouldBe` Right (1, (), "")

@@ -297,8 +297,8 @@ parseVectorizedValue = do
       advance
       current' <- gets currentToken
       case tokenKeyword current' of
-        LBracket -> parseMatrixValue  -- [[...], [...]]
-        _ -> parseVectorValue         -- [...]
+        LBracket -> parseMatrixValue -- [[...], [...]]
+        _ -> parseVectorValue -- [...]
     _ -> throwError $ mkError [LBracket] current
 
 parseVectorValue :: Parser Value
@@ -309,7 +309,7 @@ parseVectorValue = do
 
 parseMatrixValue :: Parser Value
 parseMatrixValue = do
-  advance  -- consume the second [
+  advance -- consume the second [
   row1 <- parseValue `parseSeparatedBy` match Comma
   match RBracket
   rows <- many $ do
@@ -448,8 +448,8 @@ parseFactor = do
       advance
       current' <- gets currentToken
       case tokenKeyword current' of
-        LBracket -> parseMatrixLiteral  -- If we see [[, it's a matrix
-        _ -> parseVectorLiteral         -- Otherwise it's a vector
+        LBracket -> parseMatrixLiteral -- If we see [[, it's a matrix
+        _ -> parseVectorLiteral -- Otherwise it's a vector
     INumber n -> advance >> return (Factor $ IntLit n)
     FNumber n -> advance >> return (Factor $ FloatLit n)
     Identifier name -> do
@@ -481,7 +481,7 @@ parseVectorLiteral = do
 -- | Parse a matrix literal [[x11, x12], [x21, x22], ...]
 parseMatrixLiteral :: Parser Expression
 parseMatrixLiteral = do
-  advance  -- consume the second [
+  advance -- consume the second [
   row1 <- parseExpression `parseSeparatedBy` match Comma
   match RBracket
   rows <- many $ do

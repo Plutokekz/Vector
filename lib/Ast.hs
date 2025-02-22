@@ -10,7 +10,6 @@ data Block = Block
     instruction :: Statement
   }
   deriving (Show, Eq)
-
 data Procedure = Procedure String Block deriving (Show, Eq)
 
 data Statement
@@ -62,7 +61,7 @@ data Type
   | VectorizedType
       { numberType :: NumberType,
         dimensions :: Dimensions,
-        specifier :: Maybe Specifier  -- e.g. Identity, Einheitsvektor, Sparse, etc.
+        specifier :: Maybe Specifier -- e.g. Identity, Einheitsvektor, Sparse, etc.
       }
   deriving (Show, Eq)
 
@@ -86,6 +85,6 @@ data Specifier
 data Value
   = IntVal Integer
   | FloatVal Double
-  | VectorVal [Value]        -- For vectors: [a, b, c]
-  | MatrixVal [[Value]]      -- For matrices: [[a, b], [c, d]]
+  | VectorVal [Value] -- For vectors: [a, b, c]
+  | MatrixVal [[Value]] -- For matrices: [[a, b], [c, d]]
   deriving (Show, Eq)

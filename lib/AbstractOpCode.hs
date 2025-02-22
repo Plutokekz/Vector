@@ -9,6 +9,8 @@ data Instruction
   = RST
   | LOD Integer Integer
   | STO Integer Integer
+  | LODN Integer Integer  -- Load n bytes from stack
+  | STON Integer Integer Integer -- store n bytes on the stack
   | INC Integer
   | LITI Integer -- Load imidieate integer
   | LITF Double -- load imideate float
@@ -35,10 +37,12 @@ data Operator
   | Gt
   | Gte
   | Not
-  | MatrixMul
+  | MatrixMul Dimension Dimension
   | ElementMul
   | ElementDiv
   deriving (Show, Eq)
+
+type Dimension = (Int, Int)
 
 data TableEntry
   = VariableEntry {depth :: Integer, nameCount :: Integer, variabbleType :: Ast.Type}
