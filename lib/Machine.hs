@@ -177,8 +177,8 @@ genFactor (FloatLit value) = do
   modify $ \s -> s {codeCounter = codeCounter s + 1}
   return [LITF value]
 genFactor (Parens expr) = genExpr expr
-genFactor (MatrixLit exprMatrix) = error "Not Implementen"
-genFactor (MatrixIndex name (x, y)) = error "Not Implementen"
+genFactor (VectorizedLit exprMatrix) = error "Not Implementen"
+genFactor (VectorizedIndex name (x, y)) = error "Not Implementen"
 
 genUnary :: UnOp -> Expression -> Compiler [Instruction]
 genUnary op expr = do

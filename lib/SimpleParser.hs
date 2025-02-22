@@ -280,13 +280,48 @@ parseCompoundInstruction = do
 
 -- | Parse a value (for constants)
 parseValue :: Parser Value
-parseValue = parseToken getValue [INumber 0, FNumber 0.0]
+parseValue = parseSimpleValue <|> parseVectorizedValue
+
+parseSimpleValue :: Parser Value
+parseSimpleValue = parseToken getValue [INumber 0, FNumber 0.0]
   where
     getValue tok =
       case tok of
         INumber n -> Just $ IntVal n
         FNumber n -> Just $ FloatVal n
         _ -> Nothing
+
+parseVectorizedValue :: Parser Value
+parseVectorizedValue = do
+  current <- gets currentToken
+  case tokenKeyword current of
+    LBracket -> do
+      advance
+      current' <- gets currentToken
+      case tokenKeyword current' of
+        LBracket -> parseMatrixValue  -- [[...], [...]]
+        _ -> parseVectorValue         -- [...]
+    _ -> throwError $ mkError [LBracket] current
+
+parseVectorValue :: Parser Value
+parseVectorValue = do
+  elements <- parseValue `parseSeparatedBy` match Comma
+  match RBracket
+  return $ VectorVal elements
+
+parseMatrixValue :: Parser Value
+parseMatrixValue = do
+  advance  -- consume the second [
+  row1 <- parseValue `parseSeparatedBy` match Comma
+  match RBracket
+  rows <- many $ do
+    match Comma
+    match LBracket
+    row <- parseValue `parseSeparatedBy` match Comma
+    match RBracket
+    return row
+  match RBracket
+  return $ MatrixVal (row1 : rows)
 
 -- | Parse a number token
 parseNumber :: Parser Integer
