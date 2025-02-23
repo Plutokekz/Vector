@@ -8,6 +8,7 @@ import Data.Maybe (fromMaybe)
 import Data.Monoid (Monoid (..))
 import Data.Semigroup (Semigroup (..))
 import Lexer (tokenize)
+import System.Random (Random (..), StdGen, mkStdGen, uniformR)
 import Token (Token (..), TokenKeyword (..))
 
 -- -----------------------------------------------------------------------------
@@ -125,6 +126,23 @@ parseToken predicate expected = do
     Just x -> advance >> return x
     Nothing -> throwError $ mkError expected current
 
+-- | Convert a MatrixVal to a VectorizedLit Expression
+matrixValToVectorizedLitFactor :: Value -> Expression
+matrixValToVectorizedLitFactor (MatrixVal m) =
+  Factor $
+    VectorizedLit
+      -- [ [ Factor $ case v of
+      --       IntVal n -> IntLit n
+      --       FloatVal n -> FloatLit n
+      [ [ case v of
+            IntVal n -> n
+            FloatVal n -> floor n -- Convert floats to integers by taking the floor
+          | v <- row
+        ]
+        | row <- m
+      ]
+matrixValToVectorizedLitFactor _ = error "Expected MatrixVal"
+
 -- -----------------------------------------------------------------------------
 -- 5. CONCRETE PARSERS
 -- -----------------------------------------------------------------------------
@@ -189,24 +207,34 @@ parseVarDecls = do
 parseType :: Parser Type
 parseType = do
   -- First parse the base number type
-  numType <- parseNumberType
+  numType <- parseBaseNumberType
 
   -- Check for dimensions and a specifier, corresponding to a vectorized type
   current <- gets currentToken
   case tokenKeyword current of
-    Identifier "DIM" -> do
-      advance
-      match LParent
-      dims <- parseNumber `parseSeparatedBy` match Comma
-      match RParent
+    DIM -> do
+      dims <- parseDimensions
       spec <- optional parseSpecifier
-      -- Convert single dimension to two dimensions [n] -> [1,n]
-      let adjustedDims = case dims of
-            [n] -> (1, n)  -- Convert vector dimension to 1×n matrix
-            [w, h] -> (w, h)
-      return $ VectorizedType numType adjustedDims spec
-    -- If there are no brackets, it's a simple number type
+      return $ VectorizedType numType dims spec
+    -- If there are no dimensions, it's a simple number type
     _ -> return $ NumberType numType
+
+-- | Parse just the base number type
+parseBaseNumberType :: Parser NumberType
+parseBaseNumberType = do
+  current <- gets currentToken
+  case tokenKeyword current of
+    INT8 -> advance >> return (IntType Int8)
+    INT16 -> advance >> return (IntType Int16)
+    INT32 -> advance >> return (IntType Int32)
+    INT64 -> advance >> return (IntType Int64)
+    INT128 -> advance >> return (IntType Int128)
+    FLOAT8 -> advance >> return (FloatType Float8)
+    FLOAT16 -> advance >> return (FloatType Float16)
+    FLOAT32 -> advance >> return (FloatType Float32)
+    FLOAT64 -> advance >> return (FloatType Float64)
+    FLOAT128 -> advance >> return (FloatType Float128)
+    _ -> throwError $ mkError [INT8, INT16, INT32, INT64, INT128, FLOAT8, FLOAT16, FLOAT32, FLOAT64, FLOAT128] current
 
 parseSpecifier :: Parser Specifier
 parseSpecifier = parseToken getSpecifier specifierTokens
@@ -228,23 +256,6 @@ parseSpecifier = parseToken getSpecifier specifierTokens
         Token.LowerTriangular -> Just Ast.LowerTriangular
         Token.Orthogonal -> Just Ast.Orthogonal
         _ -> Nothing
-
--- Helper to parse just the number type portion
-parseNumberType :: Parser NumberType
-parseNumberType = do
-  current <- gets currentToken
-  case tokenKeyword current of
-    INT8 -> advance >> return (IntType Int8)
-    INT16 -> advance >> return (IntType Int16)
-    INT32 -> advance >> return (IntType Int32)
-    INT64 -> advance >> return (IntType Int64)
-    INT128 -> advance >> return (IntType Int128)
-    FLOAT8 -> advance >> return (FloatType Float8)
-    FLOAT16 -> advance >> return (FloatType Float16)
-    FLOAT32 -> advance >> return (FloatType Float32)
-    FLOAT64 -> advance >> return (FloatType Float64)
-    FLOAT128 -> advance >> return (FloatType Float128)
-    _ -> throwError $ mkError [INT8, INT16, INT32, INT64, INT128, FLOAT8, FLOAT16, FLOAT32, FLOAT64, FLOAT128] current
 
 parseProcDecls :: Parser [Procedure]
 parseProcDecls =
@@ -282,7 +293,7 @@ parseCompoundInstruction = do
 
 -- | Parse a value (for constants)
 parseValue :: Parser Value
-parseValue = parseSimpleValue <|> parseVectorizedValue
+parseValue = parseSimpleValue <|> parseVectorizedValue <|> parseMatrixGenerator
 
 parseSimpleValue :: Parser Value
 parseSimpleValue = parseToken getValue [INumber 0, FNumber 0.0]
@@ -310,7 +321,7 @@ parseVectorAsMatrixValue :: Parser Value
 parseVectorAsMatrixValue = do
   elements <- parseValue `parseSeparatedBy` match Comma
   match RBracket
-  return $ MatrixVal [elements]  -- Wrap in single row
+  return $ MatrixVal [elements] -- Wrap in single row
 
 -- | Parse a full matrix value
 parseMatrixValue :: Parser Value
@@ -331,19 +342,22 @@ parseMatrixValue = do
 parseVectorLiteral :: Parser Expression
 parseVectorLiteral = do
   elements <- parseNumber `parseSeparatedBy` match Comma
+  -- elements <- parseExpression `parseSeparatedBy` match Comma
   match RBracket
-  return $ Factor $ VectorizedLit [elements]  -- Wrap in single row
+  return $ Factor $ VectorizedLit [elements] -- Wrap in single row
 
 -- | Parse a matrix literal
 parseMatrixLiteral :: Parser Expression
 parseMatrixLiteral = do
   advance -- consume the second [
   row1 <- parseNumber `parseSeparatedBy` match Comma
+  -- row1 <- parseExpression `parseSeparatedBy` match Comma
   match RBracket
   rows <- many $ do
     match Comma
     match LBracket
     row <- parseNumber `parseSeparatedBy` match Comma
+    -- row <- parseExpression `parseSeparatedBy` match Comma
     match RBracket
     return row
   match RBracket
@@ -480,6 +494,9 @@ parseFactor = do
         _ -> parseVectorLiteral -- Otherwise it's a vector
     INumber n -> advance >> return (Factor $ IntLit n)
     FNumber n -> advance >> return (Factor $ FloatLit n)
+    GenFromVal -> matrixValToVectorizedLitFactor <$> parseMatrixGenerator
+    GenId -> matrixValToVectorizedLitFactor <$> parseMatrixGenerator
+    GenRandom -> matrixValToVectorizedLitFactor <$> parseMatrixGenerator
     Identifier name -> do
       advance
       -- Look ahead for possible matrix indexing
@@ -488,15 +505,17 @@ parseFactor = do
         LBracket -> do
           advance
           idx1 <- parseFactor
+          -- idx1 <- parseExpression
           match Comma
           idx2 <- parseFactor
+          -- idx2 <- parseExpression
           match RBracket
           return $ Factor $ VectorizedIndex name (idx1, idx2)
         _ -> return $ Factor $ Var name
     _ ->
       throwError $
         mkError
-          [LParent, LBracket, INumber 0, FNumber 0.0, Identifier ""]
+          [LParent, LBracket, INumber 0, FNumber 0.0, Identifier "", GenFromVal, GenId, GenRandom]
           current
 
 -- | Parse an additive operator
@@ -528,3 +547,78 @@ parseMatrixOp =
       case tok of
         Token.ElementMult -> Just Ast.ElementMul
         _ -> Nothing
+
+-- | Parse matrix generators
+parseMatrixGenerator :: Parser Value
+parseMatrixGenerator = do
+  current <- gets currentToken
+  case tokenKeyword current of
+    GenFromVal -> parseGenFromVal
+    GenId -> parseGenId
+    GenRandom -> parseGenRandom
+    _ -> parseVectorizedValue
+
+-- | Parse dimensions for matrix generators, converting vector dims to matrix dims
+parseDimensions :: Parser (Integer, Integer)
+parseDimensions = do
+  match DIM
+  match LParent
+  dims <- parseNumber `parseSeparatedBy` match Comma
+  match RParent
+  return $ case dims of
+    [n] -> (1, n) -- Convert vector dimension to 1×n matrix
+    [w, h] -> (w, h)
+
+-- | Parse GenFromVal generator
+parseGenFromVal :: Parser Value
+parseGenFromVal = do
+  advance
+  val <- parseSimpleValue
+  dims <- parseDimensions
+  let (rows, cols) = dims
+  return $ MatrixVal (replicate (fromIntegral rows) (replicate (fromIntegral cols) val))
+
+-- | Parse GenId generator
+parseGenId :: Parser Value
+parseGenId = do
+  advance
+  dims <- parseDimensions
+  let (rows, cols) = dims
+  let identityRow i = [if j == i then IntVal 1 else IntVal 0 | j <- [0 .. fromIntegral cols - 1]]
+  return $ MatrixVal [identityRow i | i <- [0 .. fromIntegral rows - 1]]
+
+-- | Parse GenRandom generator
+parseGenRandom :: Parser Value
+parseGenRandom = do
+  advance
+  dims <- parseDimensions
+  numType <- parseBaseNumberType
+  -- Generate random values based on the type using a fixed seed for reproducibility
+  let gen = mkStdGen 42
+      generateRandomValue gen = case numType of
+        IntType Int8 -> let (val, newGen) = uniformR (-128, 127) gen in (IntVal val, newGen)
+        IntType Int16 -> let (val, newGen) = uniformR (-32768, 32767) gen in (IntVal val, newGen)
+        IntType Int32 -> let (val, newGen) = uniformR (-2147483648, 2147483647) gen in (IntVal val, newGen)
+        IntType Int64 -> let (val, newGen) = uniformR (-9223372036854775808, 9223372036854775807) gen in (IntVal val, newGen)
+        IntType Int128 -> let (val, newGen) = uniformR (-9223372036854775808, 9223372036854775807) gen in (IntVal val, newGen) -- Using Int64 range as approximation
+        -- For floating point types, use readable ranges while still covering extremes
+        FloatType Float8 -> let (val, newGen) = uniformR (-10, 10) gen in (FloatVal val, newGen)
+        FloatType Float16 -> let (val, newGen) = uniformR (-1e4, 1e4) gen in (FloatVal val, newGen)
+        FloatType Float32 -> let (val, newGen) = uniformR (-1e38, 1e38) gen in (FloatVal val, newGen)
+        FloatType Float64 -> let (val, newGen) = uniformR (-1e308, 1e308) gen in (FloatVal val, newGen)
+        FloatType Float128 -> let (val, newGen) = uniformR (-1e4000, 1e4000) gen in (FloatVal val, newGen)
+      -- Generate the matrix of random values
+      (rows, cols) = dims
+      generateRow gen =
+        let (values, newGen) =
+              foldr
+                (\_ (acc, g) -> let (val, g') = generateRandomValue g in (val : acc, g'))
+                ([], gen)
+                [1 .. cols]
+         in (values, newGen)
+      (matrix, _) =
+        foldr
+          (\_ (acc, g) -> let (row, g') = generateRow g in (row : acc, g'))
+          ([], gen)
+          [1 .. rows]
+  return $ MatrixVal matrix

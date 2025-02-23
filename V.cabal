@@ -57,7 +57,7 @@ common warnings
 library compiler-lib
      exposed-modules: SimpleParser Ast Machine AbstractOpCode Lexer Token RiscV
      hs-source-dirs: lib
-     build-depends: base ^>=4.17.2.1, mtl ^>=2.3.1, containers ^>=0.6.7, hspec ^>=2.11.10
+     build-depends: base ^>=4.17.2.1, mtl ^>=2.3.1, containers ^>=0.6.7, hspec ^>=2.11.10, random ^>=1.2.1.3
      default-language: GHC2021
 
 executable V
@@ -73,7 +73,7 @@ executable V
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base ^>=4.17.2.1, cmdargs ^>=0.10.22, compiler-lib
+    build-depends:    base ^>=4.17.2.1, cmdargs ^>=0.10.22, compiler-lib, random ^>=1.2.1.3
 
     -- Directories containing source files.
     hs-source-dirs:   app

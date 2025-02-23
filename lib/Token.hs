@@ -66,8 +66,12 @@ data TokenKeyword
   | Orthogonal
   | LowerTriangular
   | UpperTriangular
+  | -- matrix generators
+    GenFromVal
+  | GenId
+  | GenRandom
   | -- simple matrix operators
-   Transpose
+    Transpose
   | -- compound operators
     -- element wise operators
     ElementMult

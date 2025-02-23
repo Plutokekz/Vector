@@ -52,6 +52,7 @@ data Factor
   | FloatLit Double
   | Parens Expression
   | VectorizedLit [[Integer]]
+  -- | VectorizedLit [[Expression]]
   | VectorizedIndex String (Expression, Expression) -- Add support for matrix indexing
   deriving (Show, Eq)
 

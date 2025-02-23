@@ -189,6 +189,10 @@ identifier = do
     "Orthogonal" -> pure Orthogonal
     "LowerTriangular" -> pure LowerTriangular
     "END" -> pure END
+    "DIM" -> pure DIM
+    "GenFromVal" -> pure GenFromVal
+    "GenId" -> pure GenId
+    "GenRandom" -> pure GenRandom
     _ -> pure (Identifier word)
 
 symbols :: [Char] -> Lexer Char Char

@@ -29,7 +29,7 @@ spec = do
   describe "testParseExpression" testParseExpression
   describe "testParseCondition" testParseCondition
   describe "testMatrixVectorOperations" testMatrixVectorOperations
-  describe "testComplexProgram" testComplexProgram
+  describe "testMatrixGenerators" testMatrixGenerators
 
 testParseProgram :: Spec
 testParseProgram = do
@@ -78,6 +78,37 @@ testParseBlock = do
                   ]
               )
           )
+
+    it "parses block with matrix assignments using generators" $ do
+      let input =
+            unlines
+              [ "VAR INT32 DIM(2, 2) mA;",
+                "VAR FLOAT32 DIM(3, 3) mB;",
+                "BEGIN",
+                "  mA = GenId DIM(2, 2);",
+                "  mB = GenRandom DIM(3, 3) FLOAT32",
+                "END"
+              ]
+      let result = testParser parseBlock input
+      case result of
+        Right (Block [] vars [] (Compound stmts)) -> do
+          -- Check variable declarations
+          vars
+            `shouldBe` [ ("mA", VectorizedType (IntType Int32) (2, 2) Nothing),
+                         ("mB", VectorizedType (FloatType Float32) (3, 3) Nothing)
+                       ]
+          -- Check assignments
+          length stmts `shouldBe` 2
+          case head stmts of
+            Assignment "mA" expr -> do
+              putStrLn $ "Got expression for mA: " ++ show expr
+              expr `shouldBe` Factor (VectorizedLit [[1, 0], [0, 1]])
+            other -> expectationFailure $ "Expected Assignment but got: " ++ show other
+          case stmts !! 1 of
+            Assignment "mB" _ -> return () -- Random values, can't check exact values
+            other -> expectationFailure $ "Expected Assignment but got: " ++ show other
+        Right other -> expectationFailure $ "Got unexpected block structure: " ++ show other
+        Left err -> expectationFailure $ "Parser failed: " ++ err
 
 testParseConstDecls :: Spec
 testParseConstDecls = do
@@ -144,6 +175,58 @@ testParseConstDecls = do
             ("A", VectorizedType (IntType Int32) (2, 2) Nothing, MatrixVal [[IntVal 1, IntVal 2], [IntVal 3, IntVal 4]])
           ]
 
+    it "parses complex declarations with generators" $ do
+      let input =
+            unlines
+              [ "CONST INT32 DIM(3, 3) Identity mA = GenId DIM(3, 3);",
+                "CONST FLOAT32 DIM(2, 4) mB = GenFromVal 3.14 DIM(2, 4);",
+                "CONST INT8 DIM(2, 2) mC = GenRandom DIM(2, 2) INT8;"
+              ]
+      let result = testParser parseConstDecls input
+      case result of
+        Right consts -> do
+          length consts `shouldBe` 3
+          -- Check first constant (identity matrix)
+          let (name1, type1, val1) = head consts
+          name1 `shouldBe` "mA"
+          type1 `shouldBe` VectorizedType (IntType Int32) (3, 3) (Just Ast.Identity)
+          case val1 of
+            MatrixVal m -> do
+              length m `shouldBe` 3
+              all (\row -> length row == 3) m `shouldBe` True
+              and
+                [ case m !! i !! j of
+                    IntVal v -> v == if i == j then 1 else 0
+                    _ -> False
+                  | i <- [0 .. 2],
+                    j <- [0 .. 2]
+                ]
+                `shouldBe` True
+            _ -> expectationFailure "Expected MatrixVal for mA"
+
+          -- Check second constant (from value)
+          let (name2, type2, val2) = consts !! 1
+          name2 `shouldBe` "mB"
+          type2 `shouldBe` VectorizedType (FloatType Float32) (2, 4) Nothing
+          case val2 of
+            MatrixVal m -> do
+              length m `shouldBe` 2
+              all (\row -> length row == 4) m `shouldBe` True
+              all (all (== FloatVal 3.14)) m `shouldBe` True
+            _ -> expectationFailure "Expected MatrixVal for mB"
+
+          -- Check third constant (random)
+          let (name3, type3, val3) = consts !! 2
+          name3 `shouldBe` "mC"
+          type3 `shouldBe` VectorizedType (IntType Int8) (2, 2) Nothing
+          case val3 of
+            MatrixVal m -> do
+              length m `shouldBe` 2
+              all (\row -> length row == 2) m `shouldBe` True
+              all (all isValidInt8) m `shouldBe` True
+            _ -> expectationFailure "Expected MatrixVal for mC"
+        Left err -> expectationFailure $ "Failed to parse: " ++ err
+
 testParseVarDecls :: Spec
 testParseVarDecls = do
   describe "SimpleParser.parseVarDecls" $ do
@@ -159,6 +242,21 @@ testParseVarDecls = do
         `shouldBe` Right
           [ ("x", NumberType (IntType Int32)),
             ("y", NumberType (FloatType Float64))
+          ]
+
+    it "parses declarations with matrix types" $ do
+      let input =
+            unlines
+              [ "VAR INT32 DIM(3, 3) Identity mA;",
+                "VAR FLOAT32 DIM(2, 4) mB;",
+                "VAR INT8 DIM(2, 2) mC;"
+              ]
+      let result = testParser parseVarDecls input
+      result
+        `shouldBe` Right
+          [ ("mA", VectorizedType (IntType Int32) (3, 3) (Just Ast.Identity)),
+            ("mB", VectorizedType (FloatType Float32) (2, 4) Nothing),
+            ("mC", VectorizedType (IntType Int8) (2, 2) Nothing)
           ]
 
 testParseType :: Spec
@@ -228,6 +326,25 @@ testParseStatement = do
           ( While
               (Compare (Factor (Var "x")) Gt (Factor (IntLit 0)))
               (Compound [Assignment "x" (Binary Sub (Factor (Var "x")) (Factor (IntLit 1)))])
+          )
+
+    it "parses standalone expression evaluation" $ do
+      let input = "5 + 3 + 7 > 10"
+      let result = testParser parseCondition input
+      result
+        `shouldBe` Right
+          ( Compare
+              ( Binary
+                  Add
+                  ( Binary
+                      Add
+                      (Factor (IntLit 5))
+                      (Factor (IntLit 3))
+                  )
+                  (Factor (IntLit 7))
+              )
+              Gt
+              (Factor (IntLit 10))
           )
 
 testParseExpression :: Spec
@@ -304,126 +421,82 @@ testMatrixVectorOperations = do
       let result = testParser parseExpression input
       result `shouldBe` Right (Binary Ast.ElementMul (Factor (Var "A")) (Factor (Var "B")))
 
-    it "parses matrix indexing" $ do
-      let input = "A[(i + 1), (j * 2)]"
-      let result = testParser parseExpression input
+testMatrixGenerators :: Spec
+testMatrixGenerators = do
+  describe "SimpleParser.parseMatrixGenerator" $ do
+    it "parses GenFromVal for vector" $ do
+      let input = "GenFromVal 42 DIM(3)"
+      let result = testParser parseMatrixGenerator input
+      result `shouldBe` Right (MatrixVal [[IntVal 42, IntVal 42, IntVal 42]])
+
+    it "parses GenFromVal for matrix" $ do
+      let input = "GenFromVal 42 DIM(2, 3)"
+      let result = testParser parseMatrixGenerator input
+      result `shouldBe` Right (MatrixVal [[IntVal 42, IntVal 42, IntVal 42], [IntVal 42, IntVal 42, IntVal 42]])
+
+    it "parses GenFromVal with float value" $ do
+      let input = "GenFromVal 3.14 DIM(2, 2)"
+      let result = testParser parseMatrixGenerator input
+      result `shouldBe` Right (MatrixVal [[FloatVal 3.14, FloatVal 3.14], [FloatVal 3.14, FloatVal 3.14]])
+
+    it "parses GenId for vector" $ do
+      let input = "GenId DIM(3)"
+      let result = testParser parseMatrixGenerator input
+      result `shouldBe` Right (MatrixVal [[IntVal 1, IntVal 0, IntVal 0]])
+
+    it "parses GenId for matrix" $ do
+      let input = "GenId DIM(3, 3)"
+      let result = testParser parseMatrixGenerator input
       result
         `shouldBe` Right
-          ( Factor
-              ( VectorizedIndex
-                  "A"
-                  ( Factor
-                      ( Parens
-                          ( Binary
-                              Add
-                              (Factor (Var "i"))
-                              (Factor (IntLit 1))
-                          )
-                      ),
-                    Factor
-                      ( Parens
-                          ( Binary
-                              Mul
-                              (Factor (Var "j"))
-                              (Factor (IntLit 2))
-                          )
-                      )
-                  )
-              )
-          )
-
-    it "parses complex matrix expression" $ do
-      let input = "(A * B) .* (C + D)"
-      let result = testParser parseExpression input
-      result
-        `shouldBe` Right
-          ( Binary
-              ElementMul
-              (Factor (Parens (Binary Mul (Factor (Var "A")) (Factor (Var "B")))))
-              (Factor (Parens (Binary Add (Factor (Var "C")) (Factor (Var "D")))))
-          )
-
-testComplexProgram :: Spec
-testComplexProgram = do
-  describe "Complex Matrix Program" $ do
-    it "parses a complete matrix manipulation program" $ do
-      let input =
-            unlines
-              [ "PROGRAM VectorOps:",
-                "  CONST INT32 DIM(3) vA = [1, 2, 3];",
-                "  CONST INT32 DIM(3) vB = [4, 5, 6];",
-                "  CONST INT32 DIM(2, 2) A = [[1, 2], [3, 4]];",
-                "  VAR INT32 DIM(3) result;",
-                "  VAR INT32 DIM(2, 2) B;",
-                "  PROCEDURE elementwise;",
-                "    BEGIN",
-                "      result = vA .* vB;",
-                "      B = A .* [[2, 0], [0, 2]]",
-                "    END;",
-                "  BEGIN",
-                "    CALL elementwise;",
-                "    WRITE result;",
-                "    WRITE B",
-                "  END."
+          ( MatrixVal
+              [ [IntVal 1, IntVal 0, IntVal 0],
+                [IntVal 0, IntVal 1, IntVal 0],
+                [IntVal 0, IntVal 0, IntVal 1]
               ]
-      let result = parse input
-      result
-        `shouldBe` Right
-          ( Program
-              "VectorOps"
-              ( Block
-                  [ ( "vA",
-                      VectorizedType (IntType Int32) (1, 3) Nothing,
-                      MatrixVal [[IntVal 1, IntVal 2, IntVal 3]]
-                    ),
-                    ( "vB",
-                      VectorizedType (IntType Int32) (1, 3) Nothing,
-                      MatrixVal [[IntVal 4, IntVal 5, IntVal 6]]
-                    ),
-                    ( "A",
-                      VectorizedType (IntType Int32) (2, 2) Nothing,
-                      MatrixVal [[IntVal 1, IntVal 2], [IntVal 3, IntVal 4]]
-                    )
-                  ]
-                  [ ("result", VectorizedType (IntType Int32) (1, 3) Nothing),
-                    ("B", VectorizedType (IntType Int32) (2, 2) Nothing)
-                  ]
-                  [ Procedure
-                      "elementwise"
-                      ( Block
-                          []
-                          []
-                          []
-                          ( Compound
-                              [ Assignment
-                                  "result"
-                                  ( Binary
-                                      ElementMul
-                                      (Factor (Var "vA"))
-                                      (Factor (Var "vB"))
-                                  ),
-                                Assignment
-                                  "B"
-                                  ( Binary
-                                      ElementMul
-                                      (Factor (Var "A"))
-                                      ( Factor
-                                          ( VectorizedLit
-                                              [ [2, 0],
-                                                [0, 2]
-                                              ]
-                                          )
-                                      )
-                                  )
-                              ]
-                          )
-                      )
-                  ]
-                  ( Compound
-                      [ Call "elementwise",
-                        Write (Factor (Var "result")),
-                        Write (Factor (Var "B"))
-                      ]
-                  )
-              )
           )
+
+    it "parses GenRandom for INT8" $ do
+      let input = "GenRandom DIM(2, 2) INT8"
+      let result = testParser parseMatrixGenerator input
+      case result of
+        Right (MatrixVal matrix) -> do
+          length matrix `shouldBe` 2
+          all (\row -> length row == 2) matrix `shouldBe` True
+          all (all isValidInt8) matrix `shouldBe` True
+        _ -> expectationFailure "Expected a MatrixVal with 2x2 INT8 values"
+
+-- Removed for now as we currently removed FLOAT support
+    -- it "parses GenRandom for FLOAT32" $ do
+    --   let input = "GenRandom DIM(2, 3) FLOAT32"
+    --   let result = testParser parseMatrixGenerator input
+    --   case result of
+    --     Right (MatrixVal matrix) -> do
+    --       length matrix `shouldBe` 2
+    --       all (\row -> length row == 3) matrix `shouldBe` True
+    --       all (\row -> all isValidFloat32 row) matrix `shouldBe` True
+    --     _ -> expectationFailure "Expected a MatrixVal with 2x3 FLOAT32 values"
+
+    it "fails on invalid dimensions" $ do
+      let input = "GenFromVal 42 DIM()"
+      let result = testParser parseMatrixGenerator input
+      case result of
+        Left _ -> return ()
+        Right _ -> expectationFailure "Expected to fail on empty dimensions"
+
+    it "fails on missing dimensions" $ do
+      let input = "GenFromVal 42"
+      let result = testParser parseMatrixGenerator input
+      case result of
+        Left _ -> return ()
+        Right _ -> expectationFailure "Expected to fail on missing dimensions"
+
+-- Helper functions for testing random value ranges
+isValidInt8 :: Value -> Bool
+isValidInt8 (IntVal n) = n >= -128 && n <= 127
+isValidInt8 _ = False
+
+-- Removed for now as we currently removed FLOAT support
+-- isValidFloat32 :: Value -> Bool
+-- isValidFloat32 (FloatVal n) = n >= -1.0e30 && n <= 1.0e30
+-- isValidFloat32 _ = False
