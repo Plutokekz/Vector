@@ -8,7 +8,6 @@ import Control.Monad.State.Lazy
 import Data.List (find)
 import Data.Map qualified as Map
 import Debug.Trace
-import GHC.Windows (errCodeToIOError)
 
 -- Add this helper function
 debugState :: String -> Compiler ()
