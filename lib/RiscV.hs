@@ -48,13 +48,13 @@ generateAssemblyInstructions (LODO l i) = do
   modify (\s -> s {opCodesPersInstruction = opCodesPersInstruction s ++ [4 + fromIntegral l]})
   return $
     [ "ld t3, 0(sp)", -- get offest from top of stack
-    "li t0, 8",
+      "li t0, 8",
       "mul t3, t3, t0", -- multiplay index times element size to get bytew offset
       "addi sp, sp, -8", -- T:=T+1
       "mv t0, fp" -- t0 := B
     ]
       ++ replicate (fromIntegral l) "ld t0, -8(t0)" -- Follow static chain depth times
-      ++ [ "add t0, t3, t0", -- ADD loaded offest to address of fp
+      ++ [ "sub t0, t0, t3", -- ADD loaded offest to address of fp
            "ld t1, -" ++ show (i * 8 + 8) ++ "(t0)", -- Load from computed base + offset
            "sd t1, 0(sp)" -- store to stack top
          ]
@@ -77,7 +77,7 @@ generateAssemblyInstructions (STON l i n) = do
       replicate (fromIntegral l) "ld t0, -8(t0)"
       ++
       -- Store vector to computed base + offset
-      [ "addi t0, t0, -" ++ show (i * 8 + 8),
+      [ "addi t0, t0, -" ++ show (i * 8 + n * 8),
         "vse64.v v8, (t0)", -- Store vector at computed base + i
         "addi sp, sp, " ++ show (n * 8) -- Adjust stack pointer
       ]
