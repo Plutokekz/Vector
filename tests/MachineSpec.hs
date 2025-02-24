@@ -2,6 +2,7 @@ module MachineSpec where
 
 import AbstractOpCode
 import Ast qualified
+import Control.Exception (evaluate)
 import Control.Monad.State.Lazy
 import Data.Map qualified as Map
 import Machine
@@ -344,6 +345,95 @@ testGenStatement = do
       depthCounter finalState `shouldBe` 0
       nameCounter finalState `shouldBe` 1
       codeCounter finalState `shouldBe` 2
+
+    it "generates correct instructions for Assignment of vector lit" $ do
+      let stmt = Ast.Assignment "X" (Ast.Factor (Ast.VectorizedLit [[42, 1, 2, 3, 4, 5, 6]]))
+      let initialStateWithX =
+            CompilerState
+              { depthCounter = 0,
+                nameCounter = 1,
+                codeCounter = 0,
+                labelCounter = 0,
+                symbolTable =
+                  Map.fromList
+                    [ ( "X",
+                        VariableEntry
+                          { depth = 0,
+                            nameCount = 0,
+                            variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) (7, 1) Nothing
+                          }
+                      )
+                    ]
+              }
+
+      let (instructions, finalState) = runState (genStatement stmt) initialStateWithX
+
+      instructions `shouldBe` [LITV [42, 1, 2, 3, 4, 5, 6], STON 0 0 7]
+
+      depthCounter finalState `shouldBe` 0
+      nameCounter finalState `shouldBe` 1
+      codeCounter finalState `shouldBe` 2
+
+    it "generates correct instructions for Assignment of matrix lit" $ do
+      let stmt =
+            Ast.Assignment
+              "X"
+              ( Ast.Factor
+                  ( Ast.VectorizedLit
+                      [ [42, 1, 2, 3, 4, 5, 6],
+                        [42, 1, 2, 3, 4, 5, 6],
+                        [42, 1, 2, 3, 4, 5, 6]
+                      ]
+                  )
+              )
+      let initialStateWithX =
+            CompilerState
+              { depthCounter = 0,
+                nameCounter = 1,
+                codeCounter = 0,
+                labelCounter = 0,
+                symbolTable =
+                  Map.fromList
+                    [ ( "X",
+                        VariableEntry
+                          { depth = 0,
+                            nameCount = 0,
+                            variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) (7, 3) Nothing
+                          }
+                      )
+                    ]
+              }
+
+      let (instructions, finalState) = runState (genStatement stmt) initialStateWithX
+
+      instructions `shouldBe` [LITV [42, 1, 2, 3, 4, 5, 6, 42, 1, 2, 3, 4, 5, 6, 42, 1, 2, 3, 4, 5, 6], STON 0 0 21]
+
+      depthCounter finalState `shouldBe` 0
+      nameCounter finalState `shouldBe` 1
+      codeCounter finalState `shouldBe` 2
+
+    it "generates error for wrong assigment types" $ do
+      let stmt = Ast.Assignment "Z" (Ast.Factor (Ast.VectorizedLit [[42, 1, 2, 3, 4, 5, 6], [42, 1, 2, 3, 4, 5, 6], [42, 1, 2, 3, 4, 5, 6]]))
+      let initialStateWithX =
+            CompilerState
+              { depthCounter = 0,
+                nameCounter = 1,
+                codeCounter = 0,
+                labelCounter = 0,
+                symbolTable =
+                  Map.fromList
+                    [ ( "Z",
+                        VariableEntry
+                          { depth = 0,
+                            nameCount = 0,
+                            variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) (10, 10) Nothing
+                          }
+                      )
+                    ]
+              }
+
+      let result = evaluate (evalState (genStatement stmt) initialStateWithX)
+      result `shouldThrow` errorCall "Can not Assignt expression with type: VectorizedType {numberType = IntType Int64, dimensions = (7,3), specifier = Nothing} to Variable <\"Z\"> with type: VectorizedType {numberType = IntType Int64, dimensions = (10,10), specifier = Nothing}"
 
     it "generates correct instructions for Call" $ do
       let stmt = Ast.Call "proc1"
