@@ -18,6 +18,7 @@ import System.IO.Error
 data CompilerOpts = CompilerOpts
   { input :: FilePath,
     output :: Maybe FilePath,
+    intermediate :: Bool,
     verbose :: Bool
   }
   deriving (Data, Typeable, Show)
@@ -27,6 +28,7 @@ defaultOpts =
   CompilerOpts
     { input = "-" &= argPos 0 &= typ "FILE",
       output = def &= typFile &= help "Output file (defaults to stdout)",
+      intermediate = def &= help "output abstract machine code",
       verbose = def &= help "Verbose output"
     }
     &= summary "Vector Compiler 0.1.0.0"
@@ -69,12 +71,15 @@ main = do
       exitFailure
     Right ast -> do
       when (verbose opts) $
-        putStrLn "Parsing successful, generating code..."
-      let assembly =
-            generateAssembly $
-              runCompiler (genProgramm ast)
-
-      writeOutput (output opts) assembly
-
+        putStrLn "Parsing successful, generating intermediate representation"
+      let inter = runCompiler (genProgramm ast)
+      if intermediate opts
+        then do
+          writeOutput (output opts) $ concatMap (\x -> show x ++ "\n") inter
+        else do
+          when (verbose opts) $
+            putStrLn "Generating intermediate representation successful, generating assembly"
+          let assembly = generateAssembly inter
+          writeOutput (output opts) assembly
       when (verbose opts) $
         putStrLn "Compilation completed successfully"
