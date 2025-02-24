@@ -5,7 +5,7 @@ import Ast
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.State.Lazy
-import Data.List (find)
+import Data.List (find, intercalate)
 import Data.Map qualified as Map
 import Debug.Trace
 
@@ -30,9 +30,32 @@ getType name = do
   case Map.lookup name table of
     Just entry -> do
       case entry of
-        VariableEntry _ _ t -> return t
+        VariableEntry _ _ t _ -> return t
         ProcedureEntry _ _ -> error $ name ++ " Is a procedure not a Variable"
     Nothing -> error $ "Name not found: " ++ name
+
+getAssigment :: Name -> Compiler Assignt
+getAssigment name = do
+  table <- gets symbolTable
+  case Map.lookup name table of
+    Just entry -> do
+      case entry of
+        VariableEntry _ _ _ s -> return s
+        ProcedureEntry _ _ -> error $ name ++ " Is a procedure not a Variable"
+    Nothing -> error $ "Name not found: " ++ name
+
+updateAssignt :: Name -> Assignt -> Compiler ()
+updateAssignt name newAssignt = do
+  table <- gets symbolTable
+  case Map.lookup name table of
+    Just entry ->
+      case entry of
+        VariableEntry d nc vt _ ->
+          modify $ \s -> s {symbolTable = Map.insert name (VariableEntry d nc vt newAssignt) (symbolTable s)}
+        ProcedureEntry _ _ ->
+          error $ name ++ " is a procedure not a variable"
+    Nothing ->
+      error $ "Name not found: " ++ name
 
 offset :: Name -> Compiler Integer
 offset name = do
@@ -40,7 +63,7 @@ offset name = do
   case Map.lookup name table of
     Just entry -> do
       case entry of
-        VariableEntry _ count _ -> return count
+        VariableEntry _ count _ _ -> return count
         ProcedureEntry _ _ -> error $ name ++ " Is a procedure not a Variable"
     Nothing -> error $ "Name not found: " ++ name
 
@@ -89,7 +112,7 @@ genBlock (Block const variables procedures body) = do
         statementCode <- genStatement body
         return $ constCode ++ variableCode ++ statementCode
 
-  popScope
+  --popScope
   modify $ \s -> s {depthCounter = depthCounter s - 1}
   return instructions
 
@@ -115,6 +138,8 @@ genStatement (Assignment name expression) = do
   i <- offset name
   variableType <- getType name
   (expressionType, exprCode) <- genExpr expression
+  -- basic assigment checking does not work wor recursion or other complex things
+  updateAssignt name Yes
   -- only checks basetype NumberType or VectorizedType
   if expressionType /= variableType
     then do
@@ -248,9 +273,9 @@ genExpr :: Expression -> Compiler (Type, [Instruction])
 genExpr (Binary op expr1 expr2) = do
   (type1, expr1Code) <- genExpr expr1
   (type2, expr2Code) <- genExpr expr2
-  (type1, opInstruction) <- resultType type1 op type2
+  (rtype, opInstruction) <- resultType type1 op type2
   modify $ \s -> s {codeCounter = codeCounter s + 1}
-  return (type1, expr1Code ++ expr2Code ++ [opInstruction])
+  return (rtype, expr1Code ++ expr2Code ++ [opInstruction])
 genExpr (Unary op expr) = genUnary op expr
 genExpr (Factor factor) = genFactor factor
 
@@ -259,6 +284,9 @@ genFactor (Var name) = do
   s <- step name
   i <- offset name
   t <- getType name
+  isAssignt <- getAssigment name
+  when (isAssignt == No) $ do
+    updateAssignt name Need
   modify $ \s -> s {codeCounter = codeCounter s + 1}
   case t of
     (VectorizedType vt dim vs) -> do
@@ -376,7 +404,7 @@ genConstant :: (String, Type, Value) -> Compiler (Integer, [Instruction])
 genConstant (name, constType, value) = do
   d <- gets depthCounter
   n <- gets nameCounter
-  pushSymbol (VariableEntry d n constType) name
+  pushSymbol (VariableEntry d n constType Yes) name
   o <- offset name
   case (constType, value) of
     (NumberType _, IntVal val) -> do
@@ -405,7 +433,7 @@ genVariable :: (String, Type) -> Compiler Integer
 genVariable (name, variableType) = do
   d <- gets depthCounter
   n <- gets nameCounter
-  pushSymbol (VariableEntry d n variableType) name
+  pushSymbol (VariableEntry d n variableType No) name
   case variableType of
     NumberType _ -> do
       modify $ \s -> s {nameCounter = nameCounter s + 1}
@@ -425,8 +453,31 @@ initialState =
       labelCounter = 0
     }
 
+isNeedVariable :: (Name, TableEntry) -> Bool
+isNeedVariable (_, VariableEntry _ _ _ Need) = True
+isNeedVariable _ = False
+
+checkNeededAssignments :: Compiler ()
+checkNeededAssignments = do
+  table <- gets symbolTable
+  traceM $ show table
+  let neededVars = map fst $ filter isNeedVariable $ Map.toList table
+  traceM $ show neededVars
+  unless (null neededVars) $ do
+      error $
+        "The following variables need to be assigned: "
+          ++ intercalate ", " neededVars
+
 runCompiler :: Compiler a -> a
-runCompiler comp = evalState comp initialState
+runCompiler comp = 
+  evalState (do
+    result <- comp
+    table <- gets symbolTable
+    let tableStr = "Symbol table: " ++ show table
+    let _ = trace tableStr ()  -- Force evaluation with side effect
+    checkNeededAssignments
+    return result
+  ) initialState
 
 runCompilerWithState :: Compiler a -> (a, CompilerState)
 runCompilerWithState comp = runState comp initialState

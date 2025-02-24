@@ -80,7 +80,7 @@ testGenExpression = do
                 codeCounter = 0,
                 labelCounter = 0,
                 symbolTable =
-                  Map.fromList [("x", VariableEntry {depth = 0, nameCount = 0, variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64})]
+                  Map.fromList [("x", VariableEntry {depth = 0, nameCount = 0, variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64, assignt = Yes})]
               }
 
       let ((_, instructions), finalState) = runState (genUnary op expr) initialStateWithX
@@ -106,7 +106,8 @@ testGenExpression = do
                         VariableEntry
                           { depth = 0,
                             nameCount = 0,
-                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64
+                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64,
+                            assignt = Yes
                           }
                       )
                     ]
@@ -135,7 +136,7 @@ testGenExpression = do
                 nameCounter = 4,
                 codeCounter = 0,
                 labelCounter = 0,
-                symbolTable = Map.fromList [("x", VariableEntry {depth = 0, nameCount = 3, variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64})]
+                symbolTable = Map.fromList [("x", VariableEntry {depth = 0, nameCount = 3, variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64, assignt = Yes})]
               }
       let ((_, instructions), finalState) = runState (genExpr expr) initialStateWithX
       instructions `shouldBe` [LOD 0 3]
@@ -209,8 +210,8 @@ testGenExpression = do
                 labelCounter = 0,
                 symbolTable =
                   Map.fromList
-                    [ ("m1", VariableEntry {depth = 0, nameCount = 3, variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) (10, 10) Nothing}),
-                      ("m2", VariableEntry {depth = 0, nameCount = 4, variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) (10, 10) Nothing})
+                    [ ("m1", VariableEntry {depth = 0, nameCount = 3, variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) (10, 10) Nothing, assignt = Yes}),
+                      ("m2", VariableEntry {depth = 0, nameCount = 4, variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) (10, 10) Nothing, assignt = Yes})
                     ]
               }
       let ((_, instructions), finalState) = runState (genExpr expr) initialStateWithMatrix
@@ -235,8 +236,8 @@ testConditions = do
             initialState
               { symbolTable =
                   Map.fromList
-                    [ ("x", VariableEntry 0 3 (Ast.NumberType $ Ast.IntType Ast.Int8)),
-                      ("y", VariableEntry 0 4 (Ast.NumberType $ Ast.IntType Ast.Int8))
+                    [ ("x", VariableEntry 0 3 (Ast.NumberType $ Ast.IntType Ast.Int8) No),
+                      ("y", VariableEntry 0 4 (Ast.NumberType $ Ast.IntType Ast.Int8) No)
                     ]
               }
       let cond =
@@ -253,8 +254,8 @@ testConditions = do
             initialState
               { symbolTable =
                   Map.fromList
-                    [ ("x", VariableEntry 0 3 (Ast.NumberType $ Ast.FloatType Ast.Float8)),
-                      ("y", VariableEntry 0 4 (Ast.NumberType $ Ast.FloatType Ast.Float8))
+                    [ ("x", VariableEntry 0 3 (Ast.NumberType $ Ast.FloatType Ast.Float8) No),
+                      ("y", VariableEntry 0 4 (Ast.NumberType $ Ast.FloatType Ast.Float8) No)
                     ]
               }
       let cond =
@@ -271,8 +272,8 @@ testConditions = do
             initialState
               { symbolTable =
                   Map.fromList
-                    [ ("x", VariableEntry 0 3 (Ast.NumberType $ Ast.IntType Ast.Int64)),
-                      ("y", VariableEntry 0 4 (Ast.NumberType $ Ast.IntType Ast.Int64))
+                    [ ("x", VariableEntry 0 3 (Ast.NumberType $ Ast.IntType Ast.Int64) No),
+                      ("y", VariableEntry 0 4 (Ast.NumberType $ Ast.IntType Ast.Int64) No)
                     ]
               }
       let cond =
@@ -301,7 +302,7 @@ testConditions = do
             initialState
               { symbolTable =
                   Map.fromList
-                    [ ("x", VariableEntry 1 3 (Ast.NumberType $ Ast.IntType Ast.Int64)) -- Variable from outer block
+                    [ ("x", VariableEntry 1 3 (Ast.NumberType $ Ast.IntType Ast.Int64) No) -- Variable from outer block
                     ],
                 depthCounter = 2 -- Current block is nested
               }
@@ -332,7 +333,8 @@ testGenStatement = do
                         VariableEntry
                           { depth = 0,
                             nameCount = 0,
-                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64
+                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64,
+                            assignt = Yes
                           }
                       )
                     ]
@@ -360,7 +362,8 @@ testGenStatement = do
                         VariableEntry
                           { depth = 0,
                             nameCount = 0,
-                            variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) (7, 1) Nothing
+                            variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) (7, 1) Nothing,
+                            assignt = Yes
                           }
                       )
                     ]
@@ -398,7 +401,8 @@ testGenStatement = do
                         VariableEntry
                           { depth = 0,
                             nameCount = 0,
-                            variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) (7, 3) Nothing
+                            variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) (7, 3) Nothing,
+                            assignt = Yes
                           }
                       )
                     ]
@@ -426,7 +430,8 @@ testGenStatement = do
                         VariableEntry
                           { depth = 0,
                             nameCount = 0,
-                            variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) (10, 10) Nothing
+                            variabbleType = Ast.VectorizedType (Ast.IntType Ast.Int64) (10, 10) Nothing,
+                            assignt = Yes
                           }
                       )
                     ]
@@ -476,7 +481,8 @@ testGenStatement = do
                         VariableEntry
                           { depth = 0,
                             nameCount = 0,
-                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64
+                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64,
+                            assignt = Yes
                           }
                       )
                     ]
@@ -518,14 +524,16 @@ testGenStatement = do
                         VariableEntry
                           { depth = 0,
                             nameCount = 0,
-                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64
+                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64,
+                            assignt = Yes
                           }
                       ),
                       ( "y",
                         VariableEntry
                           { depth = 0,
                             nameCount = 1,
-                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64
+                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64,
+                            assignt = Yes
                           }
                       )
                     ]
@@ -554,14 +562,16 @@ testGenStatement = do
                         VariableEntry
                           { depth = 0,
                             nameCount = 0,
-                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64
+                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64,
+                            assignt = Yes
                           }
                       ),
                       ( "y",
                         VariableEntry
                           { depth = 0,
                             nameCount = 1,
-                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64
+                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64,
+                            assignt = Yes
                           }
                       )
                     ]
@@ -590,7 +600,8 @@ testGenStatement = do
                         VariableEntry
                           { depth = 0,
                             nameCount = 0,
-                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64
+                            variabbleType = Ast.NumberType $ Ast.IntType Ast.Int64,
+                            assignt = Yes
                           }
                       )
                     ]

@@ -67,8 +67,10 @@ data Operator
 type Dimension = (Integer, Integer)
 type Length = Integer
 
+data Assignt = Yes | No | Need deriving (Show, Eq)
+
 data TableEntry
-  = VariableEntry {depth :: Integer, nameCount :: Integer, variabbleType :: Ast.Type}
+  = VariableEntry {depth :: Integer, nameCount :: Integer, variabbleType :: Ast.Type, assignt :: Assignt}
   | ProcedureEntry {depth :: Integer, label :: String}
   deriving (Show, Eq)
 
