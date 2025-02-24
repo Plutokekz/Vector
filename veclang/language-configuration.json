@@ -1,0 +1,92 @@
+{
+    "comments": {
+        // symbol used for single line comment. Remove this entry if your language does not support line comments
+        "lineComment": "--",
+        // symbols used for start and end a block comment. Remove this entry if your language does not support block comments
+        // "blockComment": [ "/*", "*/" ]
+    },
+    // symbols used as brackets
+    "brackets": [
+        ["[", "]"],
+        ["[[", "]]"],
+        ["(", ")"]
+    ],
+    // symbols that are auto closed when typing
+    "autoClosingPairs": [
+        ["[", "]"],
+        ["[[", "]]"],
+        ["(", ")"]
+    ],
+    // symbols that can be used to surround a selection
+    "surroundingPairs": [
+        ["[", "]"],
+        ["[[", "]]"],
+        ["(", ")"]
+    ],
+    // Auto indentation rules
+    "indentationRules": {
+        "increaseIndentPattern": "^.*\\b(BEGIN|THEN|DO|PROGRAM\\s+\\w+\\s*:)\\b[^;]*$",
+        "decreaseIndentPattern": "^\\s*(END|ELSE)\\b.*$"
+    },
+    // Words that trigger automatic indentation
+    "onEnterRules": [
+        {
+            "beforeText": "^\\s*\\b(BEGIN|THEN|DO)\\b",
+            "action": { "indent": "indent" }
+        },
+        {
+            "beforeText": "^\\s*\\bPROGRAM\\s+\\w+\\s*:\\s*$",
+            "action": { "indent": "indent" }
+        }
+    ],
+    "diagnostics": {
+        "undeclaredVariable": {
+            "severity": "error",
+            "message": "Variable '${0}' is not declared in the current scope"
+        },
+        "typeMismatch": {
+            "severity": "error",
+            "message": "Type mismatch: expected ${0}, got ${1}"
+        },
+        "matrixDimensionMismatch": {
+            "severity": "error",
+            "message": "Matrix dimensions do not match for operation: ${0}x${1} vs ${2}x${3}"
+        },
+        "invalidMatrixOperation": {
+            "severity": "error",
+            "message": "Invalid matrix operation: ${0}"
+        },
+        "missingMatrixSpecifier": {
+            "severity": "warning",
+            "message": "Matrix declaration could benefit from a specifier (SPARSE, IDENTITY, etc.)"
+        },
+        "inefficientMatrixOperation": {
+            "severity": "warning",
+            "message": "Consider using element-wise operation (.* or ./) for this matrix operation"
+        },
+        "inconsistentDimensions": {
+            "severity": "warning",
+            "message": "Matrix dimensions suggest possible inconsistency in operation"
+        },
+        "patterns": [
+            {
+                "name": "missing-program-end",
+                "pattern": "PROGRAM\\s+\\w+\\s*:(?:.|\\s)*?(?:END\\s*[^.]|$)",
+                "message": "Program must end with a period (.)",
+                "severity": "error"
+            },
+            {
+                "name": "missing-semicolon",
+                "pattern": "(BEGIN|THEN|DO)\\s+[^;\\s]+\\s+(?!END|ELSE)[^;]+$",
+                "message": "Missing semicolon (;) after statement",
+                "severity": "error"
+            },
+            {
+                "name": "unmatched-begin-end",
+                "pattern": "(BEGIN(?:.|\\s)*?(?:BEGIN|$)|END(?:.|\\s)*?(?:END|$))",
+                "message": "Unmatched BEGIN/END block",
+                "severity": "error"
+            }
+        ]
+    }
+}

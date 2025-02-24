@@ -1,0 +1,39 @@
+{
+  "name": "veclang",
+  "displayName": "VecLang",
+  "description": "Language support for a simple imperative language designed for vector and matrix operations.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.97.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "v",
+      "aliases": ["V", "v"],
+      "extensions": [".v"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "v",
+      "scopeName": "source.v",
+      "path": "./syntaxes/v.tmLanguage.json"
+    }],
+    "problemMatchers": [
+      {
+        "name": "v",
+        "owner": "v",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(.+)\\((\\d+),(\\d+)\\):\\s+(.+)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "message": 4
+        }
+      }
+    ]
+  }
+}

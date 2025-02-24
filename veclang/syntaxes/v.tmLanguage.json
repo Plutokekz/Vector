@@ -1,0 +1,174 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "V",
+	"patterns": [
+		{
+			"include": "#comments"
+		},
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#types"
+		},
+		{
+			"include": "#matrix_specifiers"
+		},
+		{
+			"include": "#matrix_generators"
+		},
+		{
+			"include": "#matrix_literals"
+		},
+		{
+			"include": "#operators"
+		},
+		{
+			"include": "#numbers"
+		},
+		{
+			"include": "#identifiers"
+		},
+		{
+			"include": "#syntax_errors"
+		}
+	],
+	"repository": {
+		"comments": {
+			"patterns": [{
+				"name": "comment.line.double-dash.v",
+				"match": "--.*$"
+			}]
+		},
+		"keywords": {
+			"patterns": [{
+				"name": "keyword.control.v",
+				"match": "\\b(PROGRAM|CONST|VAR|PROCEDURE|CALL|READ|WRITE|BEGIN|END|IF|THEN|WHILE|DO|NOT|DIM)\\b"
+			}]
+		},
+		"types": {
+			"patterns": [{
+				"name": "storage.type.v",
+				"match": "\\b(INT|FLOAT)(8|16|32|64|128)\\b"
+			}]
+		},
+		"matrix_specifiers": {
+			"patterns": [{
+				"name": "storage.type.matrix.v",
+				"match": "\\b(SPARSE|IDENTITY|DIAGONAL|ORTHOGONAL|UPPERTRIANGULAR|LOWERTRIANGULAR)\\b"
+			}]
+		},
+		"matrix_generators": {
+			"patterns": [{
+				"match": "\\b(GenFromVal|GenId|GenRandom)\\b",
+				"name": "support.function.v"
+			}]
+		},
+		"matrix_literals": {
+			"patterns": [
+				{
+					"name": "meta.matrix.v",
+					"match": "(\\[\\[)(.*?)(\\]\\])",
+					"captures": {
+						"1": { "name": "punctuation.brackets.matrix.v" },
+						"2": { "patterns": [
+							{
+								"match": "\\[.*?\\]",
+								"name": "meta.matrix.row.v"
+							},
+							{
+								"include": "#numbers"
+							},
+							{
+								"match": ",",
+								"name": "punctuation.separator.matrix.v"
+							}
+						]},
+						"3": { "name": "punctuation.brackets.matrix.v" }
+					}
+				},
+				{
+					"name": "meta.vector.v",
+					"match": "(\\[)(.*?)(\\])",
+					"captures": {
+						"1": { "name": "punctuation.brackets.vector.v" },
+						"2": { "patterns": [
+							{
+								"include": "#numbers"
+							},
+							{
+								"match": ",",
+								"name": "punctuation.separator.vector.v"
+							}
+						]},
+						"3": { "name": "punctuation.brackets.vector.v" }
+					}
+				}
+			]
+		},
+		"operators": {
+			"patterns": [
+				{
+					"name": "keyword.operator.arithmetic.v",
+					"match": "[+\\-*/]"
+				},
+				{
+					"name": "keyword.operator.matrix.v",
+					"match": "\\.(\\*|/)"
+				},
+				{
+					"name": "keyword.operator.comparison.v",
+					"match": "(==|<=|>=|<|>)"
+				},
+				{
+					"name": "keyword.operator.assignment.v",
+					"match": "="
+				}
+			]
+		},
+		"numbers": {
+			"patterns": [
+				{
+					"name": "constant.numeric.integer.v",
+					"match": "\\b\\d+\\b"
+				},
+				{
+					"name": "constant.numeric.float.v",
+					"match": "\\b\\d+\\.\\d+\\b"
+				}
+			]
+		},
+		"identifiers": {
+			"patterns": [{
+				"name": "variable.other.v",
+				"match": "\\b[A-Za-z][A-Za-z0-9]*\\b"
+			}]
+		},
+		"syntax_errors": {
+			"patterns": [
+				{
+					"name": "invalid.illegal.missing-period.v",
+					"match": "(?<=END)\\s*$",
+					"captures": {
+						"0": { "name": "invalid.illegal.missing-period.v" }
+					}
+				},
+				{
+					"name": "invalid.illegal.missing-semicolon.v",
+					"match": "(BEGIN|THEN|DO)\\s+[^;\\n]+(?=\\s*(BEGIN|THEN|DO|END|ELSE|$))",
+					"captures": {
+						"0": { "name": "invalid.illegal.missing-semicolon.v" }
+					}
+				},
+				{
+					"name": "invalid.illegal.unmatched-block.v",
+					"match": "\\bBEGIN\\b(?!.*?\\bEND\\b)|\\bEND\\b(?<!\\bBEGIN\\b.*)",
+					"captures": {
+						"0": { "name": "invalid.illegal.unmatched-block.v" }
+					}
+				}
+			]
+		}
+	},
+	"scopeName": "source.v"
+}
