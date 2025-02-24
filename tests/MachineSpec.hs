@@ -46,24 +46,24 @@ testGenVaribles = do
       let programm = [("x", Ast.NumberType $ Ast.IntType Ast.Int8), ("y", Ast.NumberType $ Ast.FloatType Ast.Float128), ("z", Ast.NumberType $ Ast.IntType Ast.Int64), ("A", Ast.VectorizedType (Ast.IntType Ast.Int8) (64, 64) Nothing), ("B", Ast.NumberType $ Ast.FloatType Ast.Float128)]
       let (instructions, finalState) = runCompilerWithState (genVariables programm)
 
-      instructions `shouldBe` [INC 5]
+      instructions `shouldBe` [INC 4100]
 
       depthCounter finalState `shouldBe` 0
-      nameCounter finalState `shouldBe` 5
+      nameCounter finalState `shouldBe` 4100
       codeCounter finalState `shouldBe` 1
 
 testGenConstants :: Spec
 testGenConstants = do
   describe "Test constants declaration" $ do
     it "generates correct instructions for list of constants" $ do
-      let programm = [("x", Ast.NumberType $ Ast.IntType Ast.Int8, Ast.IntVal 200)]
+      let programm = [("x", Ast.NumberType $ Ast.IntType Ast.Int8, Ast.IntVal 200), ("B", Ast.VectorizedType (Ast.IntType Ast.Int8) (3, 3) Nothing, Ast.MatrixVal [[Ast.IntVal 200, Ast.IntVal 200, Ast.IntVal 200], [Ast.IntVal 200, Ast.IntVal 200, Ast.IntVal 200], [Ast.IntVal 200, Ast.IntVal 200, Ast.IntVal 200]])]
       let (instructions, finalState) = runCompilerWithState (genConstants programm)
 
-      instructions `shouldBe` [INC 1, LIT 200, STO 0 0]
+      instructions `shouldBe` [INC 10, LIT 200, STO 0 0, LITV [200, 200, 200, 200, 200, 200, 200, 200, 200], STON 0 1 9]
 
       depthCounter finalState `shouldBe` 0
-      nameCounter finalState `shouldBe` 1
-      codeCounter finalState `shouldBe` 3
+      nameCounter finalState `shouldBe` 10
+      codeCounter finalState `shouldBe` 5
 
 testGenExpression :: Spec
 testGenExpression = do
@@ -213,7 +213,7 @@ testGenExpression = do
                     ]
               }
       let ((_, instructions), finalState) = runState (genExpr expr) initialStateWithMatrix
-      instructions `shouldBe` [LODN 0 3 100,LODN 0 4 100,OPR (MatrixMul (10,10) (10,10))]
+      instructions `shouldBe` [LODN 0 3 100, LODN 0 4 100, OPR (MatrixMul (10, 10) (10, 10))]
       codeCounter finalState `shouldBe` 3
 
 testConditions :: Spec

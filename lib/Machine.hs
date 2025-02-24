@@ -294,10 +294,10 @@ genFactor (VectorizedIndex name (Factor x, Factor y)) = do
                   Ast.Add
                   ( Ast.Binary
                       Ast.Mul
-                      (Ast.Factor (Ast.Var y))
+                      (Ast.Factor (Ast.Var x))
                       (Ast.Factor (Ast.IntLit (fst vd)))
                   )
-                  (Ast.Factor (Ast.Var x))
+                  (Ast.Factor (Ast.Var y))
           (type1, exprCode) <- genExpr indexExpr
           modify $ \s -> s {codeCounter = codeCounter s + 1}
           return (NumberType vt, exprCode ++ [LODO s i])
@@ -307,10 +307,10 @@ genFactor (VectorizedIndex name (Factor x, Factor y)) = do
                   Ast.Add
                   ( Ast.Binary
                       Ast.Mul
-                      (Ast.Factor (Ast.Var y))
+                      (Ast.Factor (Ast.IntLit x))
                       (Ast.Factor (Ast.IntLit (fst vd)))
                   )
-                  (Ast.Factor (Ast.IntLit x))
+                  (Ast.Factor (Ast.Var y))
           (type1, exprCode) <- genExpr indexExpr
           modify $ \s -> s {codeCounter = codeCounter s + 1}
           return (NumberType vt, exprCode ++ [LODO s i])
@@ -320,10 +320,10 @@ genFactor (VectorizedIndex name (Factor x, Factor y)) = do
                   Ast.Add
                   ( Ast.Binary
                       Ast.Mul
-                      (Ast.Factor (Ast.IntLit y))
+                      (Ast.Factor (Ast.Var x))
                       (Ast.Factor (Ast.IntLit (fst vd)))
                   )
-                  (Ast.Factor (Ast.Var x))
+                  (Ast.Factor (Ast.IntLit y))
           (type1, exprCode) <- genExpr indexExpr
           modify $ \s -> s {codeCounter = codeCounter s + 1}
           return (NumberType vt, exprCode ++ [LODO s i])
@@ -380,34 +380,52 @@ genCompare' Ast.Neq = do
 genConstants :: [(String, Type, Value)] -> Compiler [Instruction]
 genConstants [] = return []
 genConstants consts = do
-  cons <- concat <$> mapM genConstant consts
   modify $ \s -> s {codeCounter = codeCounter s + 1}
-  return $ INC (toInteger $ length consts) : cons
+  (size, instructions) <- mapAndUnzipM genConstant consts
+  return $ INC (toInteger $ sum size) : concat instructions
 
-genConstant :: (String, Type, Value) -> Compiler [Instruction]
+genConstant :: (String, Type, Value) -> Compiler (Integer, [Instruction])
 genConstant (name, constType, value) = do
   d <- gets depthCounter
   n <- gets nameCounter
   pushSymbol (VariableEntry d n constType) name
-  modify $ \s -> s {nameCounter = nameCounter s + 1, codeCounter = codeCounter s + 2}
   o <- offset name
-  case value of
-    IntVal val -> return [LIT val, STO 0 o]
-    FloatVal val -> error "Not Implemented"
+  case (constType, value) of
+    (NumberType _, IntVal val) -> do
+      modify $ \s -> s {nameCounter = nameCounter s + 1, codeCounter = codeCounter s + 2}
+      return (1, [LIT val, STO 0 o])
+    (NumberType _, FloatVal val) ->
+      error "Const floats Not Implemented yet"
+    (VectorizedType vt dim vs, MatrixVal vals) -> do
+      let (w, h) = dim
+      modify $ \s -> s {nameCounter = nameCounter s + w * h, codeCounter = codeCounter s + 2}
+      return (w * h, [LITV $ concatMap (map valueToInteger) vals, STON 0 o (w * h)])
+
+valueToInteger :: Value -> Integer
+valueToInteger (IntVal v) = v
+valueToInteger (FloatVal v) = error "Float values unpacking Not implementet"
+valueToInteger (MatrixVal v) = error "Unpacking Matrix values, expected float or int val"
 
 genVariables :: [(String, Type)] -> Compiler [Instruction]
 genVariables [] = return []
 genVariables variables = do
-  mapM_ genVariable variables
+  sizes <- mapM genVariable variables
   modify $ \s -> s {codeCounter = codeCounter s + 1}
-  return [INC $ toInteger $ length variables]
+  return [INC $ toInteger $ sum sizes]
 
-genVariable :: (String, Type) -> Compiler ()
+genVariable :: (String, Type) -> Compiler Integer
 genVariable (name, variableType) = do
   d <- gets depthCounter
   n <- gets nameCounter
   pushSymbol (VariableEntry d n variableType) name
-  modify $ \s -> s {nameCounter = nameCounter s + 1}
+  case variableType of
+    NumberType _ -> do
+      modify $ \s -> s {nameCounter = nameCounter s + 1}
+      return 1
+    (VectorizedType vt dim vs) -> do
+      let (w, h) = dim
+      modify $ \s -> s {nameCounter = nameCounter s + w * h}
+      return (w * h)
 
 initialState :: CompilerState
 initialState =
