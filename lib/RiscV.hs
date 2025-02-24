@@ -44,6 +44,69 @@ textSection =
   ]
 
 generateAssemblyInstructions :: Instruction -> Assembly
+generateAssemblyInstructions (LODO l i) = do
+  modify (\s -> s {opCodesPersInstruction = opCodesPersInstruction s ++ [4 + fromIntegral l]})
+  return $
+    [ "ld t3, 0(sp)", -- get offest from top of stack
+    "li t0, 8",
+      "mul t3, t3, t0", -- multiplay index times element size to get bytew offset
+      "addi sp, sp, -8", -- T:=T+1
+      "mv t0, fp" -- t0 := B
+    ]
+      ++ replicate (fromIntegral l) "ld t0, -8(t0)" -- Follow static chain depth times
+      ++ [ "add t0, t3, t0", -- ADD loaded offest to address of fp
+           "ld t1, -" ++ show (i * 8 + 8) ++ "(t0)", -- Load from computed base + offset
+           "sd t1, 0(sp)" -- store to stack top
+         ]
+generateAssemblyInstructions (LODN l i n) = do error "LODN Not Implemented"
+generateAssemblyInstructions (STON l i n) = do
+  modify (\s -> s {opCodesPersInstruction = opCodesPersInstruction s ++ [4 + fromIntegral l]})
+  return $
+    -- Set vector configuration for 64-bit elements
+    [ "li t0, " ++ show n,
+      "vsetvli t0, t0, e64, m8, ta, ma" -- Set vector length with 64-bit element width
+    ]
+      ++
+      -- Load from stack into vector register
+      [ "add x2, sp, zero",
+        "vle64.v v8, (x2)", -- Load vector from stack with 64-bit elements
+        "mv t0, fp" -- t0 := B
+      ]
+      ++
+      -- Follow static chain depth times
+      replicate (fromIntegral l) "ld t0, -8(t0)"
+      ++
+      -- Store vector to computed base + offset
+      [ "addi t0, t0, -" ++ show (i * 8 + 8),
+        "vse64.v v8, (t0)", -- Store vector at computed base + i
+        "addi sp, sp, " ++ show (n * 8) -- Adjust stack pointer
+      ]
+generateAssemblyInstructions (LITV elem) = do
+  concat <$> mapM generateAssemblyInstructions [LIT v | v <- elem]
+generateAssemblyInstructions (OPR (VectorMul l)) = do error "VectorMul Not Implemented"
+generateAssemblyInstructions (OPR (VectorAdd l)) = do error "VectorAdd Not Implemented"
+generateAssemblyInstructions (OPR (VectorSub l)) = do error "VectorSub Not Implemented"
+generateAssemblyInstructions (OPR (VectorDiv l)) = do error "VectorDiv Not Implemented"
+generateAssemblyInstructions (OPR (VectorAddScalar l)) = do error "VectorAddScalar Not Implemented"
+generateAssemblyInstructions (OPR (VectorMulScalar l)) = do error "VectorMulScalar Not Implemented"
+generateAssemblyInstructions (OPR (VectorDivScalar l)) = do error "VectorDivScalar Not Implemented"
+generateAssemblyInstructions (OPR (VectorSubScalar l)) = do error "VectorSubScalar Not Implemented"
+generateAssemblyInstructions (OPR (ScalarAddVector l)) = do error "ScalarAddVector Not Implemented"
+generateAssemblyInstructions (OPR (ScalarMulVector l)) = do error "ScalarMulVector Not Implemented"
+generateAssemblyInstructions (OPR (ScalarDivVector l)) = do error "ScalarDivVector Not Implemented"
+generateAssemblyInstructions (OPR (ScalarSubVector l)) = do error "ScalarSubVector Not Implemented"
+generateAssemblyInstructions (OPR (MatrixMul dim1 dim2)) = do error "MatrixMul dim1  Not Implemented"
+generateAssemblyInstructions (OPR (MatrixAdd dim1 dim2)) = do error "MatrixAdd dim1  Not Implemented"
+generateAssemblyInstructions (OPR (MatrixSub dim1 dim2)) = do error "MatrixSub dim1  Not Implemented"
+generateAssemblyInstructions (OPR (MatrixDiv dim1 dim2)) = do error "MatrixDiv dim1  Not Implemented"
+generateAssemblyInstructions (OPR (MatrixDivScalar dim)) = do error "MatrixDivScalar Not Implemented"
+generateAssemblyInstructions (OPR (MatrixAddScalar dim)) = do error "MatrixAddScalar Not Implemented"
+generateAssemblyInstructions (OPR (MatrixMulScalar dim)) = do error "MatrixMulScalar Not Implemented"
+generateAssemblyInstructions (OPR (MatrixSubScalar dim)) = do error "MatrixSubScalar Not Implemented"
+generateAssemblyInstructions (OPR (ScalarDivMatrix dim)) = do error "ScalarDivMatrix Not Implemented"
+generateAssemblyInstructions (OPR (ScalarAddMatrix dim)) = do error "ScalarAddMatrix Not Implemented"
+generateAssemblyInstructions (OPR (ScalarMulMatrix dim)) = do error "ScalarMulMatrix Not Implemented"
+generateAssemblyInstructions (OPR (ScalarSubMatrix dim)) = do error "ScalarSubMatrix Not Implemented"
 generateAssemblyInstructions (OPR Add) = do
   modify (\s -> s {opCodesPersInstruction = opCodesPersInstruction s ++ [5]})
   return
@@ -126,7 +189,6 @@ generateAssemblyInstructions (OPR Not) = do
       "xori t0, t0, 1", --   # XOR with 1 to invert the bit
       "sd t0, 0(sp)" -- Store result (no stack adjustment needed)
     ]
-generateAssemblyInstructions (OPR (MatrixMul _ _)) = error "Not Implemented"
 generateAssemblyInstructions (LIT value) = do
   modify (\s -> s {opCodesPersInstruction = opCodesPersInstruction s ++ [3]})
   return
