@@ -3,7 +3,7 @@
 ![Program](diagram/Program.svg)
 
 ```
-Program  ::= 'PROGRAM' Name ';' Block '.' .
+Program  ::= 'PROGRAM' Name ':' Block '.'
 ```
 
 **Block:**
@@ -11,7 +11,7 @@ Program  ::= 'PROGRAM' Name ';' Block '.' .
 ![Block](diagram/Block.svg)
 
 ```
-Block    ::= ( 'CONST' Name '=' Number ( ',' Name '=' Number )* ';' )? ( 'VAR' Type Name ( ',' Name )* ';' )? ( 'PROCEDURE' Name ';' Block ';' )* Instruction .
+Block    ::= ( 'CONST' Type Name '=' Value ( ',' Name '=' Value )* ';' )* ( 'VAR' Type Name ( ',' Name )* ';' )* ( 'PROCEDURE' Name ';' Block ';' )* Instruction
 ```
 
 referenced by:
@@ -24,31 +24,124 @@ referenced by:
 ![Type](diagram/Type.svg)
 
 ```
-Type     ::= ( 'INT8' | 'INT16' | 'INT32' | 'INT64' | 'INT128' | 'FLOAT8' | 'FLOAT16'
-                  | 'FLOAT32' | 'FLOAT64' | 'FLOAT128' ) ( ( MatrixType? '[' Size ']' )? '[' Size ']' )*
+Type     ::= NumericType
+           | VectorizedType
 ```
 
 referenced by:
 
 * Block
 
-**MatrixType:**
+**NumericType:**
 
-![MatrixType](diagram/MatrixType.svg)
+![NumericType](diagram/NumericType.svg)
 
 ```
-MatrixType
-         ::= 'SPARSE'
-           | 'IDENTITY'
-           | 'DIAGONAL'
-           | 'UPPERTRIANGULAR'
-           | 'LOWERTRIANGULAR'
-           | 'ORTHOGONAL'
+NumericType
+         ::= 'INT8'
+           | 'INT16'
+           | 'INT32'
+           | 'INT64'
+           | 'INT128'
+           | 'FLOAT8'
+           | 'FLOAT16'
+           | 'FLOAT32'
+           | 'FLOAT64'
+           | 'FLOAT128'
+```
+
+referenced by:
+
+* MatrixGenerator
+* Type
+* VectorizedType
+
+**VectorizedType:**
+
+![VectorizedType](diagram/VectorizedType.svg)
+
+```
+VectorizedType
+         ::= NumericType 'DIM' '(' Dimensions ')' MatrixSpecifier?
 ```
 
 referenced by:
 
 * Type
+
+**Dimensions:**
+
+![Dimensions](diagram/Dimensions.svg)
+
+```
+Dimensions
+         ::= Integer ( ',' Integer )?
+```
+
+referenced by:
+
+* MatrixGenerator
+* VectorizedType
+
+**Value:**
+
+![Value](diagram/Value.svg)
+
+```
+Value    ::= Number
+           | VectorValue
+           | MatrixValue
+           | MatrixGenerator
+```
+
+referenced by:
+
+* Block
+* VectorValue
+
+**VectorValue:**
+
+![VectorValue](diagram/VectorValue.svg)
+
+```
+VectorValue
+         ::= '[' Value ( ',' Value )* ']'
+```
+
+referenced by:
+
+* Factor
+* MatrixValue
+* Value
+
+**MatrixValue:**
+
+![MatrixValue](diagram/MatrixValue.svg)
+
+```
+MatrixValue
+         ::= '[' VectorValue ( ',' VectorValue )* ']'
+```
+
+referenced by:
+
+* Factor
+* Value
+
+**MatrixGenerator:**
+
+![MatrixGenerator](diagram/MatrixGenerator.svg)
+
+```
+MatrixGenerator
+         ::= ( 'GenFromVal' Number | 'GenId' ) 'DIM' '(' Dimensions ')'
+           | 'GenRandom' 'DIM' '(' Dimensions ')' NumericType .
+```
+
+referenced by:
+
+* Factor
+* Value
 
 **Instruction:**
 
@@ -56,7 +149,10 @@ referenced by:
 
 ```
 Instruction
-         ::= ( ( Name '=' | 'WRITE' ) Expression | ( 'CALL' | 'READ' ) Name | 'BEGIN' Instruction ( ';' Instruction )* 'END' | ( 'IF' Condition 'THEN' | 'WHILE' Condition 'DO' ) Instruction ) .
+         ::= ( Name '=' | 'WRITE' ) Expression
+           | ( 'CALL' | 'READ' ) Name
+           | 'BEGIN' Instruction ( ';' Instruction )* 'END'
+           | ( 'IF' Condition 'THEN' | 'WHILE' Condition 'DO' ) Instruction
 ```
 
 referenced by:
@@ -70,13 +166,11 @@ referenced by:
 
 ```
 Condition
-         ::= Expression ( ( '<' | '>' ) '='? | '==' ) Expression
-           | 'NOT' Condition .
+         ::= 'NOT'* Expression ( '==' | '<' | '>' | '<=' | '>=' ) Expression
 ```
 
 referenced by:
 
-* Condition
 * Instruction
 
 **Expression:**
@@ -85,7 +179,7 @@ referenced by:
 
 ```
 Expression
-         ::= ( '+' | '-' )? Term ( ( '+' | '-' ) Term )* .
+         ::= ( '+' | '-' )? Term ( ( '+' | '-' ) Term )*
 ```
 
 referenced by:
@@ -99,7 +193,7 @@ referenced by:
 ![Term](diagram/Term.svg)
 
 ```
-Term     ::= Factor ( ( '*' | '/' ) Factor )* .
+Term     ::= Factor ( ( '*' | '/' | '.*' ) Factor )*
 ```
 
 referenced by:
@@ -111,14 +205,46 @@ referenced by:
 ![Factor](diagram/Factor.svg)
 
 ```
-Factor   ::= Name
+Factor   ::= Name ( '[' Expression ',' Expression ']' )?
            | Number
-           | '(' Expression ')' .
+           | '(' Expression ')'
+           | VectorValue
+           | MatrixValue
+           | MatrixGenerator
 ```
 
 referenced by:
 
 * Term
+
+**Name:**
+
+![Name](diagram/Name.svg)
+
+```
+Name     ::= Letter+
+```
+
+referenced by:
+
+* Block
+* Factor
+* Instruction
+* Program
+
+**Number:**
+
+![Number](diagram/Number.svg)
+
+```
+Number   ::= '-'? Digit+ ( '.' Digit* )?
+```
+
+referenced by:
+
+* Factor
+* MatrixGenerator
+* Value
 
 **Letter:**
 
@@ -202,38 +328,27 @@ Digit    ::= '0'
 
 referenced by:
 
-* Name
 * Number
 
-**Name:**
+**MatrixSpecifier:**
 
-![Name](diagram/Name.svg)
-
-```
-Name     ::= Letter ( Letter | Digit | '_' )*
-```
-
-referenced by:
-
-* Block
-* Factor
-* Instruction
-* Program
-
-**Number:**
-
-![Number](diagram/Number.svg)
+![MatrixSpecifier](diagram/MatrixSpecifier.svg)
 
 ```
-Number   ::= '-'? Digit+ '.'? Digit*
+MatrixSpecifier
+         ::= 'SPARSE'
+           | 'IDENTITY'
+           | 'DIAGONAL'
+           | 'UPPERTRIANGULAR'
+           | 'LOWERTRIANGULAR'
+           | 'ORTHOGONAL'
 ```
 
 referenced by:
 
-* Block
-* Factor
+* VectorizedType
 
 ## 
-![rr-2.1](diagram/rr-2.1.svg) <sup>generated by [RR - Railroad Diagram Generator][RR]</sup>
+![rr-2.3](diagram/rr-2.3.svg) <sup>generated by [RR - Railroad Diagram Generator][RR]</sup>
 
 [RR]: https://www.bottlecaps.de/rr/ui
