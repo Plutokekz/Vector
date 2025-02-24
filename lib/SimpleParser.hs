@@ -195,8 +195,14 @@ parseVarDecls = do
       let parseOneDecl = do
             typ <- parseType
             name <- parseIdentifier
+            -- Try to parse a specifier after the variable name
+            spec <- optional parseSpecifier
             match SemiColon
-            return (name, typ)
+            -- If we found a specifier, update the type
+            let finalType = case (typ, spec) of
+                  (VectorizedType nt dims _, Just s) -> VectorizedType nt dims (Just s)
+                  _ -> typ
+            return (name, finalType)
       -- Parse one or more declarations using 'some'
       decls <- some parseOneDecl
       -- Look ahead to see if there's another VAR declaration
