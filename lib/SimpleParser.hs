@@ -566,7 +566,7 @@ parseDimensions = do
   dims <- parseNumber `parseSeparatedBy` match Comma
   match RParent
   return $ case dims of
-    [n] -> (1, n) -- Convert vector dimension to 1×n matrix
+    [n] -> (n, 1) -- Convert vector dimension to 1×n matrix
     [w, h] -> (w, h)
 
 -- | Parse GenFromVal generator
@@ -576,7 +576,7 @@ parseGenFromVal = do
   val <- parseSimpleValue
   dims <- parseDimensions
   let (rows, cols) = dims
-  return $ MatrixVal (replicate (fromIntegral rows) (replicate (fromIntegral cols) val))
+  return $ MatrixVal (replicate (fromIntegral cols) (replicate (fromIntegral rows) val))
 
 -- | Parse GenId generator
 parseGenId :: Parser Value
@@ -584,8 +584,8 @@ parseGenId = do
   advance
   dims <- parseDimensions
   let (rows, cols) = dims
-  let identityRow i = [if j == i then IntVal 1 else IntVal 0 | j <- [0 .. fromIntegral cols - 1]]
-  return $ MatrixVal [identityRow i | i <- [0 .. fromIntegral rows - 1]]
+  let identityRow i = [if j == i then IntVal 1 else IntVal 0 | j <- [0 .. fromIntegral rows - 1]]
+  return $ MatrixVal [identityRow i | i <- [0 .. fromIntegral cols - 1]]
 
 -- | Parse GenRandom generator
 parseGenRandom :: Parser Value
@@ -608,7 +608,7 @@ parseGenRandom = do
         FloatType Float64 -> let (val, newGen) = uniformR (-1e308, 1e308) gen in (FloatVal val, newGen)
         FloatType Float128 -> let (val, newGen) = uniformR (-1e4000, 1e4000) gen in (FloatVal val, newGen)
       -- Generate the matrix of random values
-      (rows, cols) = dims
+      (cols, rows) = dims
       generateRow gen =
         let (values, newGen) =
               foldr

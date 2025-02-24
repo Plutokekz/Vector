@@ -133,7 +133,7 @@ testParseConstDecls = do
       result
         `shouldBe` Right
           [ ( "v",
-              VectorizedType (IntType Int32) (1, 3) Nothing,
+              VectorizedType (IntType Int32) (3, 1) Nothing,
               MatrixVal [[IntVal 1, IntVal 2, IntVal 3]]
             )
           ]
@@ -171,7 +171,7 @@ testParseConstDecls = do
       result
         `shouldBe` Right
           [ ("x", NumberType (IntType Int32), IntVal 42),
-            ("v", VectorizedType (IntType Int32) (1, 3) Nothing, MatrixVal [[IntVal 1, IntVal 2, IntVal 3]]),
+            ("v", VectorizedType (IntType Int32) (3, 1) Nothing, MatrixVal [[IntVal 1, IntVal 2, IntVal 3]]),
             ("A", VectorizedType (IntType Int32) (2, 2) Nothing, MatrixVal [[IntVal 1, IntVal 2], [IntVal 3, IntVal 4]])
           ]
 
@@ -210,8 +210,8 @@ testParseConstDecls = do
           type2 `shouldBe` VectorizedType (FloatType Float32) (2, 4) Nothing
           case val2 of
             MatrixVal m -> do
-              length m `shouldBe` 2
-              all (\row -> length row == 4) m `shouldBe` True
+              length m `shouldBe` 4
+              all (\row -> length row == 2) m `shouldBe` True
               all (all (== FloatVal 3.14)) m `shouldBe` True
             _ -> expectationFailure "Expected MatrixVal for mB"
 
@@ -432,7 +432,7 @@ testMatrixGenerators = do
     it "parses GenFromVal for matrix" $ do
       let input = "GenFromVal 42 DIM(2, 3)"
       let result = testParser parseMatrixGenerator input
-      result `shouldBe` Right (MatrixVal [[IntVal 42, IntVal 42, IntVal 42], [IntVal 42, IntVal 42, IntVal 42]])
+      result `shouldBe` Right (MatrixVal [[IntVal 42, IntVal 42], [IntVal 42, IntVal 42], [IntVal 42, IntVal 42]])
 
     it "parses GenFromVal with float value" $ do
       let input = "GenFromVal 3.14 DIM(2, 2)"
@@ -466,7 +466,7 @@ testMatrixGenerators = do
           all (all isValidInt8) matrix `shouldBe` True
         _ -> expectationFailure "Expected a MatrixVal with 2x2 INT8 values"
 
--- Removed for now as we currently removed FLOAT support
+    -- Removed for now as we currently removed FLOAT support
     -- it "parses GenRandom for FLOAT32" $ do
     --   let input = "GenRandom DIM(2, 3) FLOAT32"
     --   let result = testParser parseMatrixGenerator input
