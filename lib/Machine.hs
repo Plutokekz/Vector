@@ -205,7 +205,7 @@ resultType (VectorizedType (IntType Int64) dim1 spec1) op (VectorizedType (IntTy
     -- Vector Vector mul
     if (w1 == 1) && (w2 == 1)
       then do
-        when (h1 /= h1) $ do
+        when (h1 /= h2) $ do
           error $ "Connot Multiplay Vectors with diffrent lengths: " ++ show h1 ++ "!=" ++ show h2
         return (VectorizedType (IntType Int64) (w1, h2) spec1, OPR (VectorMul h1))
       else do
