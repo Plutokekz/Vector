@@ -116,8 +116,6 @@ genStatement (Assignment name expression) = do
   variableType <- getType name
   (expressionType, exprCode) <- genExpr expression
   -- only checks basetype NumberType or VectorizedType
-  traceM $ show variableType ++ " " ++ name
-  traceM $ show expressionType
   if expressionType /= variableType
     then do
       error $ "Can not Assignt expression with type: " ++ show expressionType ++ " to Variable <" ++ show name ++ "> with type: " ++ show variableType
