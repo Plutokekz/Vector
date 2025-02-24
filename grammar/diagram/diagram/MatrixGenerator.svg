@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="645" height="125">
+   <defs>
+      <style type="text/css">
+    @namespace "http://www.w3.org/2000/svg";
+    .line                 {fill: none; stroke: #332900; stroke-width: 1;}
+    .bold-line            {stroke: #141000; shape-rendering: crispEdges; stroke-width: 2;}
+    .thin-line            {stroke: #1F1800; shape-rendering: crispEdges}
+    .filled               {fill: #332900; stroke: none;}
+    text.terminal         {font-family: Verdana, Sans-serif;
+                            font-size: 12px;
+                            fill: #141000;
+                            font-weight: bold;
+                          }
+    text.nonterminal      {font-family: Verdana, Sans-serif;
+                            font-size: 12px;
+                            fill: #1A1400;
+                            font-weight: normal;
+                          }
+    text.regexp           {font-family: Verdana, Sans-serif;
+                            font-size: 12px;
+                            fill: #1F1800;
+                            font-weight: normal;
+                          }
+    rect, circle, polygon {fill: #332900; stroke: #332900;}
+    rect.terminal         {fill: #FFDB4D; stroke: #332900; stroke-width: 1;}
+    rect.nonterminal      {fill: #FFEC9E; stroke: #332900; stroke-width: 1;}
+    rect.text             {fill: none; stroke: none;}
+    polygon.regexp        {fill: #FFF4C7; stroke: #332900; stroke-width: 1;}
+  </style>
+   </defs>
+   <polygon points="9 17 1 13 1 21"/>
+   <polygon points="17 17 9 13 9 21"/>
+   <rect x="71" y="3" width="102" height="32" rx="10"/>
+   <rect x="69"
+         y="1"
+         width="102"
+         height="32"
+         class="terminal"
+         rx="10"/>
+   <text class="terminal" x="79" y="21">GenFromVal</text>
+   <a xmlns:xlink="http://www.w3.org/1999/xlink"
+      xlink:href="#Number"
+      xlink:title="Number">
+      <rect x="193" y="3" width="70" height="32"/>
+      <rect x="191" y="1" width="70" height="32" class="nonterminal"/>
+      <text class="nonterminal" x="201" y="21">Number</text>
+   </a>
+   <rect x="71" y="47" width="60" height="32" rx="10"/>
+   <rect x="69"
+         y="45"
+         width="60"
+         height="32"
+         class="terminal"
+         rx="10"/>
+   <text class="terminal" x="79" y="65">GenId</text>
+   <rect x="303" y="3" width="48" height="32" rx="10"/>
+   <rect x="301"
+         y="1"
+         width="48"
+         height="32"
+         class="terminal"
+         rx="10"/>
+   <text class="terminal" x="311" y="21">DIM</text>
+   <rect x="371" y="3" width="26" height="32" rx="10"/>
+   <rect x="369"
+         y="1"
+         width="26"
+         height="32"
+         class="terminal"
+         rx="10"/>
+   <text class="terminal" x="379" y="21">(</text>
+   <a xmlns:xlink="http://www.w3.org/1999/xlink"
+      xlink:href="#Dimensions"
+      xlink:title="Dimensions">
+      <rect x="417" y="3" width="92" height="32"/>
+      <rect x="415" y="1" width="92" height="32" class="nonterminal"/>
+      <text class="nonterminal" x="425" y="21">Dimensions</text>
+   </a>
+   <rect x="529" y="3" width="26" height="32" rx="10"/>
+   <rect x="527"
+         y="1"
+         width="26"
+         height="32"
+         class="terminal"
+         rx="10"/>
+   <text class="terminal" x="537" y="21">)</text>
+   <rect x="51" y="91" width="100" height="32" rx="10"/>
+   <rect x="49"
+         y="89"
+         width="100"
+         height="32"
+         class="terminal"
+         rx="10"/>
+   <text class="terminal" x="59" y="109">GenRandom</text>
+   <rect x="171" y="91" width="48" height="32" rx="10"/>
+   <rect x="169"
+         y="89"
+         width="48"
+         height="32"
+         class="terminal"
+         rx="10"/>
+   <text class="terminal" x="179" y="109">DIM</text>
+   <rect x="239" y="91" width="26" height="32" rx="10"/>
+   <rect x="237"
+         y="89"
+         width="26"
+         height="32"
+         class="terminal"
+         rx="10"/>
+   <text class="terminal" x="247" y="109">(</text>
+   <a xmlns:xlink="http://www.w3.org/1999/xlink"
+      xlink:href="#Dimensions"
+      xlink:title="Dimensions">
+      <rect x="285" y="91" width="92" height="32"/>
+      <rect x="283" y="89" width="92" height="32" class="nonterminal"/>
+      <text class="nonterminal" x="293" y="109">Dimensions</text>
+   </a>
+   <rect x="397" y="91" width="26" height="32" rx="10"/>
+   <rect x="395"
+         y="89"
+         width="26"
+         height="32"
+         class="terminal"
+         rx="10"/>
+   <text class="terminal" x="405" y="109">)</text>
+   <a xmlns:xlink="http://www.w3.org/1999/xlink"
+      xlink:href="#NumericType"
+      xlink:title="NumericType">
+      <rect x="443" y="91" width="100" height="32"/>
+      <rect x="441" y="89" width="100" height="32" class="nonterminal"/>
+      <text class="nonterminal" x="451" y="109">NumericType</text>
+   </a>
+   <polygon points="563 107 570 91 590 91 597 107 590 123 570 123"/>
+   <polygon points="561 105 568 89 588 89 595 105 588 121 568 121" class="regexp"/>
+   <text class="regexp" x="576" y="109">.</text>
+   <path class="line"
+         d="m17 17 h2 m40 0 h10 m102 0 h10 m0 0 h10 m70 0 h10 m-232 0 h20 m212 0 h20 m-252 0 q10 0 10 10 m232 0 q0 -10 10 -10 m-242 10 v24 m232 0 v-24 m-232 24 q0 10 10 10 m212 0 q10 0 10 -10 m-222 10 h10 m60 0 h10 m0 0 h132 m20 -44 h10 m48 0 h10 m0 0 h10 m26 0 h10 m0 0 h10 m92 0 h10 m0 0 h10 m26 0 h10 m0 0 h42 m-586 0 h20 m566 0 h20 m-606 0 q10 0 10 10 m586 0 q0 -10 10 -10 m-596 10 v68 m586 0 v-68 m-586 68 q0 10 10 10 m566 0 q10 0 10 -10 m-576 10 h10 m100 0 h10 m0 0 h10 m48 0 h10 m0 0 h10 m26 0 h10 m0 0 h10 m92 0 h10 m0 0 h10 m26 0 h10 m0 0 h10 m100 0 h10 m0 0 h10 m34 0 h10 m23 -88 h-3"/>
+   <polygon points="635 17 643 13 643 21"/>
+   <polygon points="635 17 627 13 627 21"/>
+</svg>
