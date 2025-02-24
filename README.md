@@ -1,11 +1,71 @@
 # Linear Algebra Compiler for an imperative language in Haskell
 
+
+A Compiler for the language V. In early development state. It only produces RiscV assembly or the intermediate representation. An assembler and linker is needed to produce an executable.
+
+* on non riscv machines
+  ```bash
+  sudo apt install build-essential g++-riscv64-linux-gnu gcc-riscv64-linux-gnu
+  ```
+* on riscv machines
+  ```bash
+  sudo apt install build-essential g++ gcc
+  ```
+
+## Usage
+
+Download a Release from [github](https://github.com/Plutokekz/Vector/releases) or build it from source
+
+```bash
+V-linux -?
+
+Vector Compiler 0.1.0.0
+
+V [OPTIONS] FILE
+  Compiles .v source files to riscv assembly
+
+Common flags:
+  -o --output=FILE      Output file (defaults to stdout)
+  -i --intermediate     output abstract machine code
+  -v --verbose          Verbose output
+  -? --help             Display help message
+  -V --version          Print version information
+     --numeric-version  Print just the version number
+```
+For assembly
+```bash
+V-linux examples/basic.v -o basic.s
+as -march=rv64gcv -mabi=lp64d basic.s -o basic.o
+ld basic.o basic
+```
+
+For intermediate
+```bash
+V-linux examples/basic.v -i -o basic.iv
+```
+
+### Build From Source
+
+Install ghci and cabal. Then clone the repository and build the compiler:
+
+
+```bash
+cabal build -O2 -j
+```
+or run the test:
+```bash
+cabal test
+```
+# V
+
+Most of the features of the language are still missing
+
 ## Grammar
 
 The syntax diagramm for the courrent grammar can be found in the [grammar](grammar/README.md) directory
 
 * Extension to MI  
-* LL(1) Parser  
+* Recursivedecent Parser  
 * EBNF
 
 ## Types
