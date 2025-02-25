@@ -1,6 +1,6 @@
 PROGRAM RandomJumps:
 CONST INT64 jumps = 20;
-VAR INT8 DIM(jumps, 2) path;
+VAR INT64 DIM(20, 2) path;
 VAR INT64 DIM(2) pos;
 VAR INT64 i;
 VAR INT64 maxDist;
@@ -12,7 +12,7 @@ BEGIN
   maxDist = 0;
   pos[0] = 0;
   pos[1] = 0;
-  path = GenRandom DIM(jumps, 2) INT8;
+  path = GenRandom DIM(20, 2) INT64;
   
   WHILE i < jumps DO BEGIN
     pos[0] = pos[0] + path[i][0];
