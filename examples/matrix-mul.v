@@ -1,6 +1,6 @@
 PROGRAM matrix:
-  VAR INT32[3,3] A Sparse;
-  VAR INT32[3,3] B Identity;
+  VAR INT32 DIM(3,3) A Sparse;
+  VAR INT32 DIM(3,3) B Identity;
   BEGIN
     A = [[1, 0, 3],
          [0, 2, 0],

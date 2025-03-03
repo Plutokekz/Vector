@@ -1,6 +1,6 @@
 PROGRAM GameOfLife:
-CONST INT64 size = 8;
-VAR INT8 DIM(size, size) grid;
+CONST INT8 size = 8;
+VAR INT8 DIM(8, 8) grid;
 VAR INT64 DIM(2) pos;
 VAR INT64 i;
 VAR INT64 j;
@@ -10,7 +10,7 @@ PROCEDURE playFirstGeneration;
 BEGIN
   i = 1;
   maxNeighbors = 0;
-  grid = GenRandom DIM(size, size) INT8;  -- Random initial state
+  grid = GenRandom DIM(8, 8) INT8;  -- Random initial state
   
   WHILE i < size - 1 DO BEGIN
     j = 1;

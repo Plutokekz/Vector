@@ -115,17 +115,35 @@ genStatement (Assignment name expression) = do
   i <- offset name
   variableType <- getType name
   (expressionType, exprCode) <- genExpr expression
-  -- only checks basetype NumberType or VectorizedType
-  if expressionType /= variableType
-    then do
-      error $ "Can not Assignt expression with type: " ++ show expressionType ++ " to Variable <" ++ show name ++ "> with type: " ++ show variableType
-    else do
-      modify $ \s -> s {codeCounter = codeCounter s + 1}
-      case (variableType, expressionType) of
-        (VectorizedType t1 dim1 vs1, VectorizedType t2 dim2 vs2) -> do
+  case (variableType, expressionType) of
+    -- Scalar assignment including matrix index to scalar as matrix indexing is parsed as a factor with NumberType
+    (NumberType nt1, NumberType nt2) ->
+      if nt1 /= nt2
+        then error $ "Cannot assign expression with type: " ++ show expressionType ++ " to Variable <" ++ show name ++ "> with type: " ++ show variableType
+        else do
+          modify $ \s -> s {codeCounter = codeCounter s + 1}
+          return $ exprCode ++ [STO s i]
+
+    -- Full matrix/vector to matrix/vector assignment
+    (VectorizedType vt1 dim1 vs1, VectorizedType vt2 dim2 vs2) ->
+      if variableType /= expressionType
+        then error $ "Cannot assign expression with type: " ++ show expressionType ++ " to Variable <" ++ show name ++ "> with type: " ++ show variableType
+        else do
           let (w1, h1) = dim1
+          modify $ \s -> s {codeCounter = codeCounter s + 1}
           return $ exprCode ++ [STON s i (w1 * h1)]
-        _ -> return $ exprCode ++ [STO s i]
+
+    -- Matrix/vector index to scalar assignment
+    (VectorizedType vt dim vs, NumberType nt) ->
+      if vt /= nt
+        then error $ "Cannot assign expression with type: " ++ show expressionType ++ " to Variable <" ++ show name ++ "> with type: " ++ show variableType
+        else do
+          modify $ \s -> s {codeCounter = codeCounter s + 1}
+          -- For indexed assignments, we want to store at the computed index
+          return $ exprCode ++ [STO s i]  -- Use regular STO since the index computation is handled by the parser
+    -- Any other combination is an error (including scalar to matrix)
+    _ -> error $ "Cannot assign expression with type: " ++ show expressionType ++ " to Variable <" ++ show name ++ "> with type: " ++ show variableType
+
 genStatement (Call name) = do
   s <- step name
   a <- codeaddress name
@@ -206,26 +224,40 @@ resultType (VectorizedType (IntType Int64) dim1 spec1) op (VectorizedType (IntTy
     if (w1 == 1) && (w2 == 1)
       then do
         when (h1 /= h2) $ do
-          error $ "Connot Multiplay Vectors with diffrent lengths: " ++ show h1 ++ "!=" ++ show h2
+          error $ "Cannot multiply Vectors with diffrent lengths: " ++ show h1 ++ "!=" ++ show h2
         return (VectorizedType (IntType Int64) (w1, h2) spec1, OPR (VectorMul h1))
       else do
         -- Vector Matrix and Matrix Matrix mul
         when (h1 /= w2) $ do
-          error $ "Can not multiply " ++ show dim1 ++ " by " ++ show dim2 ++ ". " ++ show h1 ++ "!=" ++ show h2
+          error $ "Cannot multiply " ++ show dim1 ++ " by " ++ show dim2 ++ ". " ++ show h1 ++ "!=" ++ show w2
         return (VectorizedType (IntType Int64) (w1, h2) spec1, OPR (AbstractOpCode.MatrixMul dim1 dim2))
   -- Add Sub Div
   op -> do
     let (w1, h1) = dim1
     let (w2, h2) = dim2
-    when ((h1 /= h2) || (w1 /= w2)) $ do
-      error $ "Can not do " ++ show op ++ " when " ++ show h1 ++ "/=" ++ show h2 ++ " or " ++ show w1 ++ "/=" ++ show w2
-    if h1 == 1
+    -- Handle broadcasting: vector to matrix
+    if w2 == 1 && h1 == h2 -- Second operand is vector with matching dimension
       then do
-        let opInstruction = matchVectorOperation op h1
-        return (VectorizedType (IntType Int64) (w1, h1) spec1, opInstruction)
-      else do
-        let opInstruction = matchMatrixOperation op dim1
-        return (VectorizedType (IntType Int64) (w1, h1) spec1, opInstruction)
+        let opInstruction = case op of
+              Ast.Add -> OPR (MatrixAddVector dim1)
+              Ast.Sub -> OPR (MatrixSubVector dim1)
+              _ -> error $ "Operation " ++ show op ++ " not supported for vector broadcasting"
+        return (VectorizedType (IntType Int64) dim1 spec1, opInstruction)
+      else
+        if w1 == 1 && h1 == h2 -- First operand is vector with matching dimension
+          then do
+            let opInstruction = case op of
+                  Ast.Add -> OPR (MatrixAddVector dim2)
+                  Ast.Sub -> OPR (MatrixSubVector dim2)
+                  _ -> error $ "Operation " ++ show op ++ " not supported for vector broadcasting"
+            return (VectorizedType (IntType Int64) dim2 spec2, opInstruction)
+          else
+            if h1 == h2 && w1 == w2 -- Regular matrix operations
+              then do
+                let opInstruction = matchMatrixOperation op dim1
+                return (VectorizedType (IntType Int64) dim1 spec1, opInstruction)
+              else
+                error $ "Cannot do " ++ show op ++ " when dimensions don't match: " ++ show dim1 ++ " and " ++ show dim2
 resultType type1 op type2 = error $ show type1 ++ show op ++ show type2 ++ " Not implemented or not supported"
 
 matchIntOperation :: BinOp -> Instruction

@@ -287,7 +287,33 @@ parseInstruction = do
     WRITE -> parseWrite
     IF -> parseIf
     WHILE -> parseWhile
-    Identifier _ -> parseAssignment
+    LBracket -> throwError $ mkError [BEGIN, CALL, READ, WRITE, IF, WHILE, Identifier ""] current
+    Identifier _ -> do
+      name <- parseIdentifier
+      -- Look ahead for possible matrix/vector indexing
+      current' <- gets currentToken
+      case tokenKeyword current' of
+        LBracket -> do
+          advance
+          idx1 <- parseFactor
+          match RBracket
+          -- Check for second dimension (matrix indexing) or equals
+          current'' <- gets currentToken
+          case tokenKeyword current'' of
+            LBracket -> do
+              advance
+              idx2 <- parseFactor
+              match RBracket
+              match Equals
+              Assignment name <$> parseExpression
+            Equals -> do
+              match Equals
+              Assignment name <$> parseExpression
+            _ -> throwError $ mkError [Equals] current''
+        Equals -> do
+          match Equals
+          Assignment name <$> parseExpression
+        _ -> throwError $ mkError [Equals, LBracket] current'
     _ -> throwError $ mkError [BEGIN, CALL, READ, WRITE, IF, WHILE, Identifier ""] current
 
 parseCompoundInstruction :: Parser Statement
@@ -505,24 +531,24 @@ parseFactor = do
     GenRandom -> matrixValToVectorizedLitFactor <$> parseMatrixGenerator
     Identifier name -> do
       advance
-      -- Look ahead for possible matrix indexing
+      -- Look ahead for possible matrix/vector indexing
       current' <- gets currentToken
       case tokenKeyword current' of
         LBracket -> do
           advance
           idx1 <- parseFactor
-          -- idx1 <- parseExpression
-          match Comma
-          idx2 <- parseFactor
-          -- idx2 <- parseExpression
           match RBracket
-          return $ Factor $ VectorizedIndex name (idx1, idx2)
+          -- Check for second bracket for matrix indexing
+          current'' <- gets currentToken
+          case tokenKeyword current'' of
+            LBracket -> do
+              advance
+              idx2 <- parseFactor
+              match RBracket
+              return $ Factor $ VectorizedIndex name (idx1, idx2)
+            _ -> return $ Factor $ VectorizedIndex name (idx1, Factor $ IntLit 0)  -- For vector indexing, use 0 as second index
         _ -> return $ Factor $ Var name
-    _ ->
-      throwError $
-        mkError
-          [LParent, LBracket, INumber 0, FNumber 0.0, Identifier "", GenFromVal, GenId, GenRandom]
-          current
+    _ -> throwError $ mkError [LParent, LBracket, INumber 0, FNumber 0.0, Identifier "", GenFromVal, GenId, GenRandom] current
 
 -- | Parse an additive operator
 parseAddOp :: Parser BinOp

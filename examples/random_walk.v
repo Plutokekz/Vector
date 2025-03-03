@@ -1,12 +1,12 @@
 PROGRAM RandomWalk:
     CONST INT64 steps = 20;
-    VAR INT8 DIM(steps, 2) walk;
+    VAR INT64 DIM(20, 2) walk;
     VAR INT64 DIM(2) pos;
     VAR INT64 i;
     VAR INT64 maxDist;
     VAR INT64 dist;
-    VAR INT8 stepX;
-    VAR INT8 stepY;
+    VAR INT64 stepX;
+    VAR INT64 stepY;
 
     PROCEDURE computeMaxDistance;
     BEGIN
@@ -15,7 +15,7 @@ PROGRAM RandomWalk:
         pos[0] = 0;
         pos[1] = 0;
         
-        walk = GenRandom DIM(steps, 2) INT8;  -- Generate steps
+        walk = GenRandom DIM(20, 2) INT64;  -- Generate steps
         
         WHILE i < steps DO BEGIN
             -- Convert random numbers to -1 or 1 based on sign

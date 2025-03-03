@@ -62,6 +62,8 @@ data Operator
   | ScalarMulVector Length
   | ScalarDivVector Length
   | ScalarSubVector Length
+  | MatrixAddVector Dimension  -- Add vector to each row of matrix
+  | MatrixSubVector Dimension  -- Subtract vector from each row of matrix
   deriving (Show, Eq)
 
 type Dimension = (Integer, Integer)

@@ -433,7 +433,7 @@ testGenStatement = do
               }
 
       let result = evaluate (evalState (genStatement stmt) initialStateWithX)
-      result `shouldThrow` errorCall "Can not Assignt expression with type: VectorizedType {numberType = IntType Int64, dimensions = (7,3), specifier = Nothing} to Variable <\"Z\"> with type: VectorizedType {numberType = IntType Int64, dimensions = (10,10), specifier = Nothing}"
+      result `shouldThrow` errorCall "Cannot assign expression with type: VectorizedType {numberType = IntType Int64, dimensions = (7,3), specifier = Nothing} to Variable <\"Z\"> with type: VectorizedType {numberType = IntType Int64, dimensions = (10,10), specifier = Nothing}"
 
     it "generates correct instructions for Call" $ do
       let stmt = Ast.Call "proc1"
